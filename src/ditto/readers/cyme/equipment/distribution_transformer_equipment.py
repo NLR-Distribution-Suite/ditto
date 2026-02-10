@@ -61,9 +61,9 @@ class DistributionTransformerEquipmentMapper(CymeMapper):
         rx_ratio = 1 / xr_ratio
         reactance_pu = float(row["Z1"]) / 100 / ((1 + rx_ratio**2) ** 0.5)
         if is_center_tapped:
-            winding_reactances = [reactance_pu, reactance_pu, reactance_pu]
+            winding_reactances = [reactance_pu * 100, reactance_pu * 100, reactance_pu * 100]
         else:
-            winding_reactances = [reactance_pu]
+            winding_reactances = [reactance_pu * 100]
         return winding_reactances
 
     def map_is_center_tapped(self, row):
@@ -199,7 +199,7 @@ class WindingEquipmentMapper(CymeMapper):
             resistance = resistance_pu * float(row["KVLLsec"]) ** 2 / float(row["KVA"])
         elif winding_number == 3:
             resistance = resistance_pu * float(row["KVLLsec"]) ** 2 / float(row["KVA"])
-        return resistance
+        return resistance_pu * 100
 
     def map_is_grounded(self, row, winding_number):
         connection_type = row["Conn"]
@@ -294,31 +294,33 @@ class WindingEquipmentMapper(CymeMapper):
         tap_positions = []
         if winding_number == 1:
             if network_row is None:
-                tap = 0.0
+                tap = 1.0
             else:
                 tap = network_row.get("PrimTap", None)
                 if tap is None:
-                    tap = network_row.get("PrimaryTapSettingA", 0)
+                    tap = network_row.get("PrimaryTapSettingA", 100)
                 tap = float(tap) / 100
 
         elif winding_number == 2:
             if network_row is None:
-                tap = 0.0
+                tap = 1.0
             else:
                 tap = network_row.get("SecTap", None)
                 if tap is None:
-                    tap = network_row.get("SecondaryTapSettingA", 0)
+                    tap = network_row.get("SecondaryTapSettingA", 100)
                 tap = float(tap) / 100
         elif winding_number == 3:
             if network_row is None:
-                tap = 0.0
+                tap = 1.0
             else:
                 tap = network_row.get("SecTap", None)
                 if tap is None:
-                    tap = network_row.get("SecondaryTapSettingA", 0)
+                    tap = network_row.get(
+                        "SecondaryTapSettingA",
+                    )
                 tap = float(tap) / 100
         if row["Taps"] == "" or row["Taps"] is None:
-            tap = 0.0
+            tap = 1.0
         for phase in range(1, num_phases + 1):
             tap_positions.append(tap)
         return tap_positions
@@ -326,7 +328,7 @@ class WindingEquipmentMapper(CymeMapper):
     def map_total_taps(self, row):
         taps = row["Taps"]
         if taps == "" or taps is None:
-            taps = 0
+            taps = 32
         total_taps = int(taps)
         return total_taps
 
