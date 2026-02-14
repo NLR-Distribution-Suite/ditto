@@ -142,7 +142,7 @@ class TestConvertModel:
         result = convert_model(
             reader_type="nonexistent_format",
             writer_type="opendss",
-            input_path="/tmp/fake",
+            input_path=str(tmp_path / "fake"),
             output_path=str(tmp_path),
         )
         assert "Unknown reader" in result
@@ -151,7 +151,7 @@ class TestConvertModel:
         result = convert_model(
             reader_type="opendss",
             writer_type="nonexistent_format",
-            input_path="/tmp/fake",
+            input_path=str(tmp_path / "fake"),
             output_path=str(tmp_path),
         )
         assert "Unknown writer" in result
