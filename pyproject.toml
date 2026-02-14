@@ -113,8 +113,11 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["src/ditto"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"docs" = "ditto/_docs"
+
 [tool.hatch.build.targets.sdist]
-include = ["src/ditto"]
+include = ["src/ditto", "docs"]
 
 [project.scripts]
 ditto_cli = "ditto.cli:app"

@@ -10,9 +10,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-# Resolve the project root: src/ditto/mcp/docs.py -> src/ditto/mcp -> src/ditto -> src -> project
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_DOCS_DIR = _PROJECT_ROOT / "docs"
+# Resolve paths for both installed and development modes.
+# When installed from a wheel, docs are bundled at <package>/_docs/.
+# In development (editable install), fall back to <project_root>/docs/.
+_PACKAGE_ROOT = Path(__file__).resolve().parent.parent  # ditto package root
+_PROJECT_ROOT = _PACKAGE_ROOT.parent.parent  # only valid in dev/src-layout mode
+
+_DOCS_DIR = _PACKAGE_ROOT / "_docs"
+if not _DOCS_DIR.exists():
+    _DOCS_DIR = _PROJECT_ROOT / "docs"
 
 # Map of page slug -> relative path within docs/
 _DOC_PAGES: dict[str, str] = {
