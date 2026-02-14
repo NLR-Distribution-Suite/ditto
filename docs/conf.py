@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "DiTTo"
-copyright = "2024, National Renewable Energy Labratory"
-author = "Tarek Elgindy, Aadil Latif, Kapil Duwadi, Daniel Thom"
+copyright = "2024, National Renewable Energy Laboratory"
+author = "Tarek Elgindy, Aadil Latif, Kapil Duwadi, Daniel Thompson, Jeremy Keen"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

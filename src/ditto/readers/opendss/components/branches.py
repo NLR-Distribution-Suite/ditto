@@ -40,6 +40,7 @@ from ditto.readers.opendss.common import (
     query_model_data,
     PHASE_MAPPER,
     UNIT_MAPPER,
+    get_unit_index,
     hash_model,
 )
 
@@ -72,7 +73,7 @@ def get_geometry_branch_equipments(
         geometry_name = odd.LineGeometries.Name().lower()
         x_coordinates = []
         y_coordinates = []
-        units = UNIT_MAPPER[odd.LineGeometries.Units()[0].value]
+        units = UNIT_MAPPER[get_unit_index(odd.LineGeometries.Units()[0])]
         odd.Text.Command(f"? LineGeometry.{geometry_name}.wires")
         wires = odd.Text.Result().strip("[]").split(", ")
         model_name = odd.Element.Name().lower().split(".")[1]
@@ -140,7 +141,7 @@ def _build_matrix_branch(
     module: odd.LineCodes | odd.Lines = getattr(odd, model_type)
 
     num_phase = module.Phases()
-    length_units = UNIT_MAPPER[module.Units().value]
+    length_units = UNIT_MAPPER[get_unit_index(module.Units())]
 
     r_matrix = module.RMatrix() if model_type == MatrixBranchTypes.LINE.value else module.Rmatrix()
     x_matrix = module.XMatrix() if model_type == MatrixBranchTypes.LINE.value else module.Xmatrix()

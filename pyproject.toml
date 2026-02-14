@@ -26,7 +26,8 @@ dependencies = [
   "grid-data-models==2.2.1",
   "rdflib",
   "NREL-altdss-schema==0.0.2",
-  "typer"
+  "typer",
+  "mcp[cli]",
 ]
 
 [project.urls]
@@ -49,6 +50,9 @@ dev = [
   "pytest",
   "ruff",
   "typer"
+]
+mcp = [
+  "mcp[cli]",
 ]
 
 [tool.pytest.ini_options]
@@ -114,4 +118,5 @@ include = ["src/ditto"]
 
 [project.scripts]
 ditto_cli = "ditto.cli:app"
+ditto_mcp = "ditto.mcp.server:main"
 

@@ -54,7 +54,7 @@ class MatrixImpedanceSwitchMapper(CimMapper):
             )
         )
         if len(equipments):
-            model_dict = equipments[0].model_dump()
+            model_dict = equipments[0].model_dump(exclude={"uuid"})
             equipment = MatrixImpedanceSwitchEquipment(**model_dict)
             return equipment
         else:

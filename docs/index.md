@@ -1,11 +1,42 @@
 # Distribution Transformation Tool (DiTTo)
 
-DiTTo is a Distribution Transformation Tool that aims at providing an open source framework to convert various distribution systems modeling formats. DiTTo implements a many-to-one-to-many parsing framework which makes it modular and robust. Readers and writers are then implemented to perform the translation from a given format to the core representation, or the other way around.
+DiTTo is an open-source *many-to-one-to-many* converter for electrical distribution system models. It reads models from various industry-standard formats, builds a validated intermediate representation using [Grid-Data-Models (GDM)](https://github.com/NREL-Distribution-Suites/grid-data-models), and writes them back to any supported output format.
 
-## How to get started ?
+## Architecture
 
-To get started, you can clone and pip install this library from [here](https://github.com/NREL-Distribution-Suites/ditto).
+```{mermaid}
+flowchart LR
+    A["Source Format\n(OpenDSS, CIM, …)"] -->|Reader| B["GDM\nDistributionSystem"]
+    B -->|Writer| C["Target Format\n(OpenDSS, …)"]
+    B -->|Serialize| D["JSON on disk"]
+```
 
+**Readers** parse source files into GDM components.  
+**Writers** export a GDM `DistributionSystem` to a target format.  
+The intermediate GDM representation can also be serialised to JSON for inspection or re-use.
+
+## Supported Formats
+
+| Format | Reader | Writer |
+|--------|:------:|:------:|
+| OpenDSS | ✅ | ✅ |
+| CIM IEC 61968-13 | ✅ | — |
+
+## Quick Start
+
+```bash
+pip install nrel-ditto
+```
+
+```python
+from ditto.readers.opendss.reader import Reader
+
+reader = Reader("Master.dss")
+system = reader.get_system()
+reader.to_json("model.json")
+```
+
+See the {doc}`install` and {doc}`usage` pages for full details.
 
 ## Contributors
 
@@ -14,7 +45,6 @@ To get started, you can clone and pip install this library from [here](https://g
 - **Kapil Duwadi**
 - **Daniel Thompson**
 - **Jeremy Keen**
-
 
 ```{toctree}
 :caption: Getting Started
@@ -30,9 +60,8 @@ install.md
 usage.md
 ```
 
-
 ```{toctree}
-:caption: API Documentation
+:caption: API Reference
 :hidden: true
 
 reference.md
