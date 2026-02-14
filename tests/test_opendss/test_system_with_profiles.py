@@ -26,16 +26,13 @@ def test_export_opends_model_with_profiles(
     ).exists(), f"LoadShape.dss file not found in the export path: {fixed_tmp_path}"
     with open(fixed_tmp_path / "Master.dss", "r", encoding="utf-8") as file:
         content = file.read()
-        return "redirect LoadShape.dss" in content
+        assert "redirect LoadShape.dss" in content
 
 
 def test_export_opends_model_with_discontineous_profiles(
     distribution_system_with_nonsequential_timeseries: DistributionSystem, tmp_path
 ):
-    from pathlib import Path
-
-    fixed_tmp_path = Path("")
-    # fixed_tmp_path = tmp_path
+    fixed_tmp_path = tmp_path
 
     writer = Writer(distribution_system_with_nonsequential_timeseries)
     csv_files = glob.glob(os.path.join(fixed_tmp_path, "*.dss"))
@@ -56,4 +53,4 @@ def test_export_opends_model_with_discontineous_profiles(
 
     with open(fixed_tmp_path / "Master.dss", "r", encoding="utf-8") as file:
         content = file.read()
-        return "redirect LoadShape.dss" in content
+        assert "redirect LoadShape.dss" in content
