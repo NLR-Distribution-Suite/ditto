@@ -1,0 +1,897 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>OpenDSS Reader &#8212; DiTTo  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api/opendss_reader';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="CIM IEC 61968-13 Reader" href="cim_reader.html" />
+    <link rel="prev" title="API Reference" href="../reference.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">DiTTo  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../install.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../usage.html">
+    Usage
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../reference.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../install.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../usage.html">
+    Usage
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../reference.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Readers</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">OpenDSS Reader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cim_reader.html">CIM IEC 61968-13 Reader</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Writers</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="opendss_writer.html">OpenDSS Writer</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">MCP</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="mcp_server.html">MCP Server</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../reference.html" class="nav-link">API Reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">OpenDSS Reader</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="opendss-reader">
+<h1>OpenDSS Reader<a class="headerlink" href="#opendss-reader" title="Link to this heading">#</a></h1>
+<p>The OpenDSS reader parses an OpenDSS master file (<code class="docutils literal notranslate"><span class="pre">.dss</span></code>) and all referenced
+include files into a GDM <code class="docutils literal notranslate"><span class="pre">DistributionSystem</span></code>. It uses
+<a class="reference external" href="https://github.com/dss-extensions/OpenDSSDirect.py">OpenDSSDirect.py</a> to drive
+the OpenDSS engine and extract component data.</p>
+<section id="module-ditto.readers.opendss.reader">
+<span id="reader-interface"></span><h2>Reader Interface<a class="headerlink" href="#module-ditto.readers.opendss.reader" title="Link to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="ditto.readers.opendss.reader.Reader">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.reader.</span></span><span class="sig-name descname"><span class="pre">Reader</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Opendss_master_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_split_phase_representation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ditto.readers.opendss.reader.Reader" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractReader</span></code></p>
+<p>Class interface for Opendss case file reader</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="ditto.readers.opendss.reader.Reader.get_system">
+<span class="sig-name descname"><span class="pre">get_system</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DistributionSystem</span></span></span><a class="headerlink" href="#ditto.readers.opendss.reader.Reader.get_system" title="Link to this definition">#</a></dt>
+<dd><p>Returns an instance of DistributionSystem</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Instance of DistributionSystem</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>DistributionSystem</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="component-parsers">
+<h2>Component Parsers<a class="headerlink" href="#component-parsers" title="Link to this heading">#</a></h2>
+<p>Each component type is handled by a dedicated module that queries the OpenDSS
+engine and maps the results to GDM objects.</p>
+<dl class="py class" id="module-ditto.readers.opendss.components.branches">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.branches.MatrixBranchTypes">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.branches.</span></span><span class="sig-name descname"><span class="pre">MatrixBranchTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ditto.readers.opendss.components.branches.MatrixBranchTypes" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.branches.get_branches">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.branches.</span></span><span class="sig-name descname"><span class="pre">get_branches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">system</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">System</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mapping</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geometry_branch_equipment_catalog</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix_branch_equipments_catalog</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thermal_limit_catalog</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">MatrixImpedanceBranch</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">GeometryBranch</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.branches.get_branches" title="Link to this definition">#</a></dt>
+<dd><p>Method to build a model branches</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>system</strong> (<em>System</em>) – Instance of System</p></li>
+<li><p><strong>mapping</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>int</em><em>]</em>) – mapping of line geometries names to GeometryBranchEquipment hash</p></li>
+<li><p><strong>geometry_branch_equipment_catalog</strong> (<em>dict</em>) – mapping of model hash to GeometryBranchEquipment instance</p></li>
+<li><p><strong>matrix_branch_equipments_catalog</strong> (<em>dict</em>) – mapping of model hash to MatrixImpedanceBranchEquipment instance</p></li>
+<li><p><strong>thermal_limit_catalog</strong> (<em>dict</em>) – mapping of model hash to ThermalLimitSet instance</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Returns a list of system branches</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[list[MatrixImpedanceBranch | GeometryBranch]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.branches.get_fuses">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.branches.</span></span><span class="sig-name descname"><span class="pre">get_fuses</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.branches.get_fuses" title="Link to this definition">#</a></dt>
+<dd><p>Returns a list of lines with fuses</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of lines with fuses</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.branches.get_geometry_branch_equipments">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.branches.</span></span><span class="sig-name descname"><span class="pre">get_geometry_branch_equipments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">system</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">System</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">GeometryBranchEquipment</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.branches.get_geometry_branch_equipments" title="Link to this definition">#</a></dt>
+<dd><p>Helper function that return a list of GeometryBranchEquipment objects</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>system</strong> (<em>System</em>) – Instance of System</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>list of GeometryBranchEquipment objects
+dict[str, int]: mapping of line geometries names to GeometryBranchEquipment hash</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[GeometryBranchEquipment]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.branches.get_matrix_branch_equipments">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.branches.</span></span><span class="sig-name descname"><span class="pre">get_matrix_branch_equipments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">MatrixImpedanceBranchEquipment</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">ThermalLimitSet</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.branches.get_matrix_branch_equipments" title="Link to this definition">#</a></dt>
+<dd><p>Function to return list of all MatrixImpedanceBranchEquipment in Opendss model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>mapping of model hash to MatrixImpedanceBranchEquipment instance
+dict[int, ThermalLimitSet]: mapping of model hash to ThermalLimitSet instance</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict[int, MatrixImpedanceBranchEquipment]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.branches.get_reclosers">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.branches.</span></span><span class="sig-name descname"><span class="pre">get_reclosers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ditto.readers.opendss.components.branches.get_reclosers" title="Link to this definition">#</a></dt>
+<dd><p>Returns a list of lines with reclosers</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of lines with reclosers</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.branches.get_tcc_curves">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.branches.</span></span><span class="sig-name descname"><span class="pre">get_tcc_curves</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">TimeCurrentCurve</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.branches.get_tcc_curves" title="Link to this definition">#</a></dt>
+<dd><p>method returns a dict of tcc curve names mapped to TimeCurrentCurve objects</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>mapped TimeCurrentCurve objects</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict[str, TimeCurrentCurve]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function" id="module-ditto.readers.opendss.components.buses">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.buses.get_buses">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.buses.</span></span><span class="sig-name descname"><span class="pre">get_buses</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">DistributionBus</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.buses.get_buses" title="Link to this definition">#</a></dt>
+<dd><p>Function to return list of all buses in Opendss model</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>crs</strong> (<em>str</em><em>, </em><em>optional</em>) – Coordinate reference system name. Defaults to None.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>list of DistributionBus objects</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[DistributionBus]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function" id="module-ditto.readers.opendss.components.cables">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.cables.get_cables_equipment">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.cables.</span></span><span class="sig-name descname"><span class="pre">get_cables_equipment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">ConcentricCableEquipment</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.cables.get_cables_equipment" title="Link to this definition">#</a></dt>
+<dd><p>Method returns a list of ConcentricCableEquipment objects</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of ConcentricCableEquipment</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[ConcentricCableEquipment]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function" id="module-ditto.readers.opendss.components.capacitors">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.capacitors.get_capacitors">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.capacitors.</span></span><span class="sig-name descname"><span class="pre">get_capacitors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">system</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">System</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">DistributionCapacitor</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.capacitors.get_capacitors" title="Link to this definition">#</a></dt>
+<dd><p>Function to return list of all capacitors in Opendss model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>system</strong> (<em>System</em>) – Instance of System</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of DistributionCapacitor objects</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[DistributionCapacitor]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function" id="module-ditto.readers.opendss.components.conductors">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.conductors.get_conductors_equipment">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.conductors.</span></span><span class="sig-name descname"><span class="pre">get_conductors_equipment</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">BareConductorEquipment</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.conductors.get_conductors_equipment" title="Link to this definition">#</a></dt>
+<dd><p>Method returns a list of BareConductorEquipment objects</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of BareConductorEquipment</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[BareConductorEquipment]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function" id="module-ditto.readers.opendss.components.loads">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.loads.get_loads">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.loads.</span></span><span class="sig-name descname"><span class="pre">get_loads</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">system</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">System</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">DistributionLoad</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.loads.get_loads" title="Link to this definition">#</a></dt>
+<dd><p>Function to return list of DistributionLoad in Opendss model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>system</strong> (<em>System</em>) – Instance of System</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of DistributionLoad objects</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[DistributionLoad]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function" id="module-ditto.readers.opendss.components.pv_systems">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.pv_systems.get_pvsystems">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.pv_systems.</span></span><span class="sig-name descname"><span class="pre">get_pvsystems</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">system</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">System</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">DistributionSolar</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.pv_systems.get_pvsystems" title="Link to this definition">#</a></dt>
+<dd><p>Function to return list of DistributionSolar in Opendss model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>system</strong> (<em>System</em>) – Instance of System</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of DistributionSolar objects</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[DistributionSolar]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class" id="module-ditto.readers.opendss.components.transformers">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.transformers.XfmrModelTypes">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.transformers.</span></span><span class="sig-name descname"><span class="pre">XfmrModelTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ditto.readers.opendss.components.transformers.XfmrModelTypes" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.transformers.get_transformer_equipments">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.transformers.</span></span><span class="sig-name descname"><span class="pre">get_transformer_equipments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">system</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">System</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">DistributionTransformerEquipment</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.transformers.get_transformer_equipments" title="Link to this definition">#</a></dt>
+<dd><p>Function to return list of all DistributionTransformerEquipment in Opendss model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>system</strong> (<em>System</em>) – Instance of infrasys System</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of DistributionTransformerEquipment objects</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[DistributionTransformerEquipment]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.components.transformers.get_transformers">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.components.transformers.</span></span><span class="sig-name descname"><span class="pre">get_transformers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">system</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">System</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distribution_transformer_equipment_catalog</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DistributionTransformerEquipment</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">winding_equipment_catalog</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">WindingEquipment</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">DistributionTransformer</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#ditto.readers.opendss.components.transformers.get_transformers" title="Link to this definition">#</a></dt>
+<dd><p>Method returns a list of DistributionTransformer objects</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>system</strong> (<em>System</em>) – Instance of System</p></li>
+<li><p><strong>distribution_transformer_equipment_catalog</strong> (<em>dict</em><em>[</em><em>int</em><em>, </em><em>DistributionTransformerEquipment</em><em>]</em>) – mapping of model hash to DistributionTransformerEquipment instance</p></li>
+<li><p><strong>winding_equipment_catalog</strong> – mapping of model hash to WindingEquipment instance</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-ditto.readers.opendss.graph_utils">
+<span id="utility-functions"></span><h2>Utility Functions<a class="headerlink" href="#module-ditto.readers.opendss.graph_utils" title="Link to this heading">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.graph_utils.update_split_phase_nodes">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.graph_utils.</span></span><span class="sig-name descname"><span class="pre">update_split_phase_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">graph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Graph</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">system</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DistributionSystem</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DistributionSystem</span></span></span><a class="headerlink" href="#ditto.readers.opendss.graph_utils.update_split_phase_nodes" title="Link to this definition">#</a></dt>
+<dd><p>Return the system with corrected split phase representation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>graph</strong> (<em>Graph</em>) – Graph representation of the dirtribution model</p></li>
+<li><p><strong>system</strong> (<em>DistributionSystem</em>) – Instance of an gdm DistributionSystem</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Updated system with fixed split phase representation</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>DistributionSystem</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class" id="module-ditto.readers.opendss.common">
+<dt class="sig sig-object py" id="ditto.readers.opendss.common.LoadTypes">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.common.</span></span><span class="sig-name descname"><span class="pre">LoadTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ditto.readers.opendss.common.LoadTypes" title="Link to this definition">#</a></dt>
+<dd><p>Load types represented in Ditto</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.common.get_equipment_from_catalog">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.common.</span></span><span class="sig-name descname"><span class="pre">get_equipment_from_catalog</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Component</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">catalog</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Component</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sub_catalog</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Component</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="headerlink" href="#ditto.readers.opendss.common.get_equipment_from_catalog" title="Link to this definition">#</a></dt>
+<dd><p>If the equipment already exixts in th system the equipment instance is returned else None is returned</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<em>Component</em>) – Instance of GDM equipment</p></li>
+<li><p><strong>catalog</strong> (<em>dict</em><em>[</em><em>int</em><em>, </em><em>Component</em><em>]</em>) – mapping model hash to model</p></li>
+<li><p><strong>sub_catalog</strong> (<em>str</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – sub catalog in a catalog. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Instance of GDM equipment</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Component | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.common.get_source_bus">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.common.</span></span><span class="sig-name descname"><span class="pre">get_source_bus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">system</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">System</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#ditto.readers.opendss.common.get_source_bus" title="Link to this definition">#</a></dt>
+<dd><p>Returns the name of the source bus</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>system</strong> (<em>System</em>) – Instance of an Infrasys System</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.common.get_unit_index">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.common.</span></span><span class="sig-name descname"><span class="pre">get_unit_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units_value</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#ditto.readers.opendss.common.get_unit_index" title="Link to this definition">#</a></dt>
+<dd><p>Extract an int from an opendssdirect Units() return value.</p>
+<p>Older versions of opendssdirect (&gt;=0.7) return a plain int while
+newer versions return an IntEnum with a <cite>.value</cite> attribute.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.common.hash_model">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.common.</span></span><span class="sig-name descname"><span class="pre">hash_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Component</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">['name',</span> <span class="pre">'uuid']</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#ditto.readers.opendss.common.hash_model" title="Link to this definition">#</a></dt>
+<dd><p>Return hash of the passed model</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<em>Component</em>) – Instance of a derived infrasys Component model</p></li>
+<li><p><strong>key_names</strong> (<em>list</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – List of keys to be removed from the model. Defaults to [“name”, “uuid”].</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>model hash</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.common.query_model_data">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.common.</span></span><span class="sig-name descname"><span class="pre">query_model_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">property</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">type</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Any</span></span></span><a class="headerlink" href="#ditto.readers.opendss.common.query_model_data" title="Link to this definition">#</a></dt>
+<dd><p>query OpenDSS model property</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_type</strong> (<em>str</em>) – OpenDSS model type</p></li>
+<li><p><strong>model_name</strong> (<em>str</em>) – OpenDSS model name</p></li>
+<li><p><strong>property</strong> (<em>str</em>) – OpenDSS model property</p></li>
+<li><p><strong>dtype</strong> (<em>type</em>) – data type e.g. str, float</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>OpenDSS model property value</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Any</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="ditto.readers.opendss.common.remove_keys_from_dict">
+<span class="sig-prename descclassname"><span class="pre">ditto.readers.opendss.common.</span></span><span class="sig-name descname"><span class="pre">remove_keys_from_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">['name',</span> <span class="pre">'uuid']</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#ditto.readers.opendss.common.remove_keys_from_dict" title="Link to this definition">#</a></dt>
+<dd><p>Method recursively removes keys from the model</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_dict</strong> (<em>dict</em>) – model in dict representation</p></li>
+<li><p><strong>key_names</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – keys to remove from the model</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>reduced model dictionary</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../reference.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">API Reference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="cim_reader.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">CIM IEC 61968-13 Reader</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-ditto.readers.opendss.reader">Reader Interface</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.reader.Reader"><code class="docutils literal notranslate"><span class="pre">Reader</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.reader.Reader.get_system"><code class="docutils literal notranslate"><span class="pre">Reader.get_system()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#component-parsers">Component Parsers</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.branches.MatrixBranchTypes"><code class="docutils literal notranslate"><span class="pre">MatrixBranchTypes</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.branches.get_branches"><code class="docutils literal notranslate"><span class="pre">get_branches()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.branches.get_fuses"><code class="docutils literal notranslate"><span class="pre">get_fuses()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.branches.get_geometry_branch_equipments"><code class="docutils literal notranslate"><span class="pre">get_geometry_branch_equipments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.branches.get_matrix_branch_equipments"><code class="docutils literal notranslate"><span class="pre">get_matrix_branch_equipments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.branches.get_reclosers"><code class="docutils literal notranslate"><span class="pre">get_reclosers()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.branches.get_tcc_curves"><code class="docutils literal notranslate"><span class="pre">get_tcc_curves()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.buses.get_buses"><code class="docutils literal notranslate"><span class="pre">get_buses()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.cables.get_cables_equipment"><code class="docutils literal notranslate"><span class="pre">get_cables_equipment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.capacitors.get_capacitors"><code class="docutils literal notranslate"><span class="pre">get_capacitors()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.conductors.get_conductors_equipment"><code class="docutils literal notranslate"><span class="pre">get_conductors_equipment()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.loads.get_loads"><code class="docutils literal notranslate"><span class="pre">get_loads()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.pv_systems.get_pvsystems"><code class="docutils literal notranslate"><span class="pre">get_pvsystems()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.transformers.XfmrModelTypes"><code class="docutils literal notranslate"><span class="pre">XfmrModelTypes</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.transformers.get_transformer_equipments"><code class="docutils literal notranslate"><span class="pre">get_transformer_equipments()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.components.transformers.get_transformers"><code class="docutils literal notranslate"><span class="pre">get_transformers()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-ditto.readers.opendss.graph_utils">Utility Functions</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.graph_utils.update_split_phase_nodes"><code class="docutils literal notranslate"><span class="pre">update_split_phase_nodes()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.common.LoadTypes"><code class="docutils literal notranslate"><span class="pre">LoadTypes</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.common.get_equipment_from_catalog"><code class="docutils literal notranslate"><span class="pre">get_equipment_from_catalog()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.common.get_source_bus"><code class="docutils literal notranslate"><span class="pre">get_source_bus()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.common.get_unit_index"><code class="docutils literal notranslate"><span class="pre">get_unit_index()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.common.hash_model"><code class="docutils literal notranslate"><span class="pre">hash_model()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.common.query_model_data"><code class="docutils literal notranslate"><span class="pre">query_model_data()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ditto.readers.opendss.common.remove_keys_from_dict"><code class="docutils literal notranslate"><span class="pre">remove_keys_from_dict()</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/api/opendss_reader.md.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, National Renewable Energy Laboratory.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.0.4.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
