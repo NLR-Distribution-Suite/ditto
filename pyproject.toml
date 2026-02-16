@@ -63,7 +63,6 @@ testpaths = [
     "tests",
 ]
 filterwarnings = [
-    "ignore::pyparsing.exceptions.PyparsingDeprecationWarning",
     "ignore:Accessing the 'model_fields' attribute on the instance is deprecated:DeprecationWarning",
     "ignore::pydantic.warnings.PydanticDeprecatedSince211",
     "ignore:Pydantic serializer warnings:UserWarning",
