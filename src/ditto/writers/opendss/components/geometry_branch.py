@@ -15,7 +15,7 @@ class GeometryBranchMapper(DistributionBranchMapper):
     opendss_file = OpenDSSFileTypes.LINES_FILE.value
 
     def map_equipment(self):
-        self.opendss_dict["Geometry"] = self.model.equipment.name
+        self.opendss_dict["Geometry"] = self.get_opendss_safe_name(self.model.equipment.name)
 
     def map_in_service(self):
         self.opendss_dict["enabled"] = self.model.in_service

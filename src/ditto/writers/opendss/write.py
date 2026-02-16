@@ -52,7 +52,11 @@ class Writer(AbstractWriter):
         voltage_bases = []
         buses: list[DistributionBus] = list(self.system.get_components(DistributionBus))
         for bus in buses:
-            voltage_bases.append(bus.rated_voltage.to("kilovolt").magnitude * 1.732)
+            voltage_bases.append(
+                bus.rated_voltage.to("kilovolt").magnitude
+                if bus.voltage_type == "line-to-line"
+                else bus.rated_voltage.to("kilovolt").magnitude * 1.732
+            )
         return list(set(voltage_bases))
 
     def write(  # noqa

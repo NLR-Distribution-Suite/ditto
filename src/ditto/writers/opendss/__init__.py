@@ -34,3 +34,10 @@ from ditto.writers.opendss.controllers.distribution_regulator_controller import 
 )
 from ditto.writers.opendss.profile import ProfileMapper
 from ditto.writers.opendss.components.distribution_solar import DistributionSolarMapper
+
+from ditto.writers.opendss.components.matrix_impedance_recloser import (
+    MatrixImpedanceRecloserMapper,
+)
+from ditto.writers.opendss.equipment.matrix_impedance_recloser_equipment import (
+    MatrixImpedanceRecloserEquipmentMapper,
+)

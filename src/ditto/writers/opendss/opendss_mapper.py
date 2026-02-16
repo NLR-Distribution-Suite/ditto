@@ -87,3 +87,7 @@ class OpenDSSMapper(ABC):
                 profile_name = str(self.model.uuid)
 
             return profile_name
+
+    def get_opendss_safe_name(self, name: str) -> str:
+        """Fix the name to be compatible with OpenDSS by replacing spaces and periods with underscores."""
+        return name.replace(" ", "_").replace(".", "_")

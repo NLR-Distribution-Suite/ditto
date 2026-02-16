@@ -18,7 +18,7 @@ class DistributionSolarMapper(OpenDSSMapper):
         self.opendss_dict["enabled"] = self.model.in_service
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
         profile_name = self.get_profile_name(self.model)
         if profile_name:
@@ -26,7 +26,7 @@ class DistributionSolarMapper(OpenDSSMapper):
 
     def map_bus(self):
         num_phases = len(self.model.phases)
-        self.opendss_dict["Bus1"] = self.model.bus.name
+        self.opendss_dict["Bus1"] = self.get_opendss_safe_name(self.model.bus.name)
         for phase in self.model.phases:
             self.opendss_dict["Bus1"] += self.phase_map[phase]
         # TODO: Should we include the phases its connected to here?

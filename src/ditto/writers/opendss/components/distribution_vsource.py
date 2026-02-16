@@ -19,14 +19,14 @@ class DistributionVoltageSourceMapper(OpenDSSMapper):
         self.opendss_dict["enabled"] = self.model.in_service
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
         profile_name = self.get_profile_name(self.model)
         if profile_name:
             self.opendss_dict["Yearly"] = profile_name
 
     def map_bus(self):
-        self.opendss_dict["Bus1"] = self.model.bus.name
+        self.opendss_dict["Bus1"] = self.get_opendss_safe_name(self.model.bus.name)
         for phase in self.model.phases:
             self.opendss_dict["Bus1"] += self.phase_map[phase]
 
@@ -71,7 +71,17 @@ class DistributionVoltageSourceMapper(OpenDSSMapper):
             else:
                 v_mag = voltage.magnitude
 
-        v_nom = rated_voltage.magnitude if num_phases == 1 else rated_voltage.magnitude * 1.732
+        if self.model.bus.voltage_type == VoltageTypes.LINE_TO_GROUND:
+            if num_phases == 1:
+                v_nom = rated_voltage.magnitude
+            else:
+                v_nom = rated_voltage.magnitude * 1.732
+        else:
+            if num_phases == 1:
+                v_nom = rated_voltage.magnitude / 1.732
+            else:
+                v_nom = rated_voltage.magnitude
+
         self.opendss_dict["Angle"] = angle.magnitude
         self.opendss_dict["pu"] = v_mag / v_nom
         self.opendss_dict["BasekV"] = v_nom
