@@ -13,7 +13,7 @@ This installs DiTTo with its core dependencies (OpenDSS, GDM, rdflib, etc.).
 ## From Source (Development)
 
 ```bash
-git clone https://github.com/NREL-Distribution-Suites/ditto.git
+git clone https://github.com/NLR-Distribution-Suite/ditto.git
 cd ditto
 pip install -e ".[dev]"
 ```

@@ -1,7 +1,7 @@
 # Usage
 
 DiTTo converts distribution system models through an intermediate
-[Grid-Data-Models (GDM)](https://github.com/NREL-Distribution-Suites/grid-data-models)
+[Grid-Data-Models (GDM)](https://github.com/NLR-Distribution-Suite/grid-data-models)
 representation. Every component is validated by GDM's Pydantic schemas during
 parsing, so errors are caught early rather than at simulation time.
 

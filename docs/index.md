@@ -1,6 +1,6 @@
 # Distribution Transformation Tool (DiTTo)
 
-DiTTo is an open-source *many-to-one-to-many* converter for electrical distribution system models. It reads models from various industry-standard formats, builds a validated intermediate representation using [Grid-Data-Models (GDM)](https://github.com/NREL-Distribution-Suites/grid-data-models), and writes them back to any supported output format.
+DiTTo is an open-source *many-to-one-to-many* converter for electrical distribution system models. It reads models from various industry-standard formats, builds a validated intermediate representation using [Grid-Data-Models (GDM)](https://github.com/NLR-Distribution-Suite/grid-data-models), and writes them back to any supported output format.
 
 ## Architecture
 

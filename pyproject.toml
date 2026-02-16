@@ -31,9 +31,9 @@ dependencies = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/NREL-Distribution-Suites/ditto#readme"
-Issues = "https://github.com/NREL-Distribution-Suites/ditto/issues"
-Source = "https://github.com/NREL-Distribution-Suites/ditto"
+Documentation = "https://github.com/NLR-Distribution-Suite/ditto#readme"
+Issues = "https://github.com/NLR-Distribution-Suite/ditto/issues"
+Source = "https://github.com/NLR-Distribution-Suite/ditto"
 
 [tool.hatch.version]
 path = "src/ditto/__init__.py"
