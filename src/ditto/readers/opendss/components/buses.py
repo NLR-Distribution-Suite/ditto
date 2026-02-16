@@ -28,7 +28,7 @@ def get_buses(crs: str = None) -> list[DistributionBus]:
         odd.Circuit.SetActiveBus(bus)
         rated_voltage = odd.Bus.kVBase()
 
-        loc = Location(x=odd.Bus.Y(), y=odd.Bus.X(), crs=crs)
+        loc = Location(x=odd.Bus.X(), y=odd.Bus.Y(), crs=crs)
         loc = get_equipment_from_catalog(loc, location_catalog)
 
         voltage_lower_bound = VoltageLimitSet(

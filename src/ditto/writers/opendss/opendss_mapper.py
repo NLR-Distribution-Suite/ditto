@@ -65,7 +65,7 @@ class OpenDSSMapper(ABC):
         # Should not be populating an existing dictionary. Assert error if not empty
         assert len(self.opendss_dict) == 0
         self.map_common()
-        for field in self.model.model_fields:
+        for field in type(self.model).model_fields:
             mapping_function = getattr(self, "map_" + field)
             mapping_function()
 

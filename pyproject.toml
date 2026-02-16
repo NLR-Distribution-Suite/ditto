@@ -23,16 +23,17 @@ classifiers = [
 ]
 dependencies = [
   "opendssdirect.py",
-  "grid-data-models==2.2.1",
+  "grid-data-models==2.3.0",
   "rdflib",
   "NREL-altdss-schema==0.0.2",
-  "typer"
+  "typer",
+  "mcp[cli]",
 ]
 
 [project.urls]
-Documentation = "https://github.com/NREL-Distribution-Suites/ditto#readme"
-Issues = "https://github.com/NREL-Distribution-Suites/ditto/issues"
-Source = "https://github.com/NREL-Distribution-Suites/ditto"
+Documentation = "https://github.com/NLR-Distribution-Suite/ditto#readme"
+Issues = "https://github.com/NLR-Distribution-Suite/ditto/issues"
+Source = "https://github.com/NLR-Distribution-Suite/ditto"
 
 [tool.hatch.version]
 path = "src/ditto/__init__.py"
@@ -47,8 +48,12 @@ doc = [
   ]
 dev = [
   "pytest",
+  "pytest-cov",
   "ruff",
   "typer"
+]
+mcp = [
+  "mcp[cli]",
 ]
 
 [tool.pytest.ini_options]
@@ -56,6 +61,11 @@ minversion = "6.0"
 addopts = "-ra"
 testpaths = [
     "tests",
+]
+filterwarnings = [
+    "ignore:Accessing the 'model_fields' attribute on the instance is deprecated:DeprecationWarning",
+    "ignore::pydantic.warnings.PydanticDeprecatedSince211",
+    "ignore:Pydantic serializer warnings:UserWarning",
 ]
 
 [tool.ruff]
@@ -109,9 +119,13 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["src/ditto"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"docs" = "ditto/_docs"
+
 [tool.hatch.build.targets.sdist]
-include = ["src/ditto"]
+include = ["src/ditto", "docs"]
 
 [project.scripts]
 ditto_cli = "ditto.cli:app"
+ditto_mcp = "ditto.mcp.server:main"
 

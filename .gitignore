@@ -176,3 +176,7 @@ cython_debug/
 *.dbl
 *.DBL
 .qodo
+
+# OpenDSS output artifacts (written by tests / writer)
+/*.dss
+/test_circuit/

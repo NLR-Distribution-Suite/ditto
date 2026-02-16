@@ -1,37 +1,41 @@
 # API Reference
 
+This section documents the public Python API for DiTTo's readers and writers.
+Each reader/writer page includes auto-generated documentation from the source
+code docstrings.
+
+## Readers
+
+Readers parse source distribution-system files into a GDM
+`DistributionSystem`. Each reader sub-package exposes a `Reader` class that
+inherits from {py:class}`ditto.readers.reader.AbstractReader`.
 
 ```{toctree}
 :caption: Readers
 :hidden: true
 
 api/opendss_reader
-api/synergi_reader
-api/cyme_reader
+api/cim_reader
 ```
+
+## Writers
+
+Writers export a GDM `DistributionSystem` to a target format on disk.
 
 ```{toctree}
 :caption: Writers
 :hidden: true
 
 api/opendss_writer
-api/synergi_writer
-api/cyme_writer
 ```
 
-```{toctree}
-:caption: Metrics
-:hidden: true
+## MCP Server
 
-api/metrics/node_metrics
-api/metrics/edge_metrics
-api/metrics/graph_metrics
-api/metrics/loadflow_metrics
-```
+DiTTo provides a Model Context Protocol server for LLM integration.
 
 ```{toctree}
-:caption: Layers
+:caption: MCP
 :hidden: true
 
-api/layers
+api/mcp_server
 ```
