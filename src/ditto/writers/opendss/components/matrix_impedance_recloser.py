@@ -18,12 +18,12 @@ class MatrixImpedanceRecloserMapper(DistributionBranchMapper):
         self.opendss_dict["LineCode"] = self.model.equipment.name
 
     def map_is_closed(self):
-        # Model the recloser as a switchable line element
-        self.opendss_dict["Switch"] = "true"
+        self.opendss_dict["Switch"] = True
 
     def map_controller(self):
         # Controller is handled separately via write.py's controller loop
         pass
 
     def map_in_service(self):
-        self.opendss_dict["enabled"] = self.model.in_service
+        if not self.model.in_service:
+            self.opendss_dict["Enabled"] = False

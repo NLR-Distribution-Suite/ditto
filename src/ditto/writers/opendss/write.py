@@ -13,6 +13,7 @@ from gdm.distribution.components import (
     MatrixImpedanceSwitch,
     DistributionBus,
 )
+from gdm.distribution.components.matrix_impedance_fuse import MatrixImpedanceFuse
 from gdm.distribution.components.matrix_impedance_recloser import MatrixImpedanceRecloser
 from gdm.distribution.common.curve import TimeCurrentCurve
 from gdm.distribution.equipment import (
@@ -323,6 +324,17 @@ class Writer(AbstractWriter):
             if not switch.is_closed[0]:
                 file_handler.write(f"open line.{switch.name}\n")
 
+        # Also handle fuse open/close status
+        try:
+            fuses: list[MatrixImpedanceFuse] = list(
+                self.system.get_components(MatrixImpedanceFuse)
+            )
+            for fuse in fuses:
+                if not fuse.is_closed[0]:
+                    file_handler.write(f"open line.{fuse.name}\n")
+        except Exception:
+            pass  # No fuses in the system
+
         # Also handle recloser open/close status
         try:
             reclosers: list[MatrixImpedanceRecloser] = list(
@@ -371,7 +383,6 @@ class Writer(AbstractWriter):
                                 base_master.write("\n")
                                 break
                 self._write_switch_status(base_master)
-
                 if has_source and equipment_type:
                     base_master.write(
                         f"New EnergyMeter.SourceMeter element={equipment_type}.{equipment_name}\n"
@@ -380,8 +391,6 @@ class Writer(AbstractWriter):
                 base_master.write("calcv\n")
                 base_master.write("Solve\n")
                 base_master.write(f"redirect {OpenDSSFileTypes.COORDINATE_FILE.value}\n")
-
-        # base_master.write(f"BusCoords {filename}\n")
 
     def _write_substation_master(self, substations_redirect):
         for substation in substations_redirect:
