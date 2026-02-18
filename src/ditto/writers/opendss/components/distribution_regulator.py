@@ -18,6 +18,11 @@ class DistributionRegulatorMapper(OpenDSSMapper):
 
     def map_name(self):
         self.opendss_dict["Name"] = self.model.name
+        # Group single-phase regulator transformers with bank= property
+        # Derive bank name by stripping the per-phase suffix (_A, _B, _C)
+        name = self.model.name
+        if name.endswith(("_A", "_B", "_C")):
+            self.opendss_dict["Bank"] = name[:-2]
 
     def map_buses(self):
         buses = []

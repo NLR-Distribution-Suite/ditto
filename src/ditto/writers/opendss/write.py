@@ -110,8 +110,7 @@ class Writer(AbstractWriter):
                     dss_string = dss_string.replace("new Vsource", "Clear\n\nNew Circuit")
                 equipment_dss_string = None
                 equipment_map: list[Path] = None
-                controller_dss_string = None
-                controller_map: list[Path] = None
+                controller_entries = []  # list of (dss_string, mapper) tuples
 
                 if hasattr(model, "equipment"):
                     equipment_mapper_name = model.equipment.__class__.__name__ + "Mapper"
@@ -146,9 +145,10 @@ class Writer(AbstractWriter):
                                                output_redirect)
 
                         controller_mapper = getattr(opendss_mapper, controller_mapper_name)
-                        controller_map = controller_mapper(controller, model.name, self.system)
-                        controller_map.populate_opendss_dictionary()
-                        controller_dss_string = self._get_dss_string(controller_map)
+                        ctrl_map = controller_mapper(controller, model.name, self.system)
+                        ctrl_map.populate_opendss_dictionary()
+                        ctrl_dss_string = self._get_dss_string(ctrl_map)
+                        controller_entries.append((ctrl_dss_string, ctrl_map))
 
                 output_folder = output_path
                 self._build_directory_structure(
@@ -171,16 +171,16 @@ class Writer(AbstractWriter):
                         ) as fp:
                             fp.write(equipment_dss_string)
 
-                if controller_dss_string is not None:
+                for ctrl_dss_string, ctrl_map in controller_entries:
                     feeder_substation_controller = (
-                        model_map.substation + model_map.feeder + controller_dss_string
+                        model_map.substation + model_map.feeder + ctrl_dss_string
                     )
                     if feeder_substation_controller not in seen_controller:
                         seen_controller.add(feeder_substation_controller)
                         with open(
-                            output_folder / controller_map.opendss_file, "a", encoding="utf-8"
+                            output_folder / ctrl_map.opendss_file, "a", encoding="utf-8"
                         ) as fp:
-                            fp.write(controller_dss_string)
+                            fp.write(ctrl_dss_string)
 
                 # TODO: Check that there aren't multiple voltage sources for the same master file
                 with open(output_folder / model_map.opendss_file, "a", encoding="utf-8") as fp:
@@ -221,8 +221,8 @@ class Writer(AbstractWriter):
                 base_redirect.add(output_redirect / model_map.opendss_file)
                 if equipment_map is not None:
                     base_redirect.add(output_redirect / equipment_map.opendss_file)
-                if controller_map is not None:
-                    base_redirect.add(output_redirect / controller_map.opendss_file)
+                for _, ctrl_map in controller_entries:
+                    base_redirect.add(output_redirect / ctrl_map.opendss_file)
 
         self._write_base_master(base_redirect, output_folder)
         self._write_substation_master(substations_redirect)

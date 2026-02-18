@@ -26,9 +26,13 @@ class DistributionCapacitorMapper(OpenDSSMapper):
         num_phases = len(self.model.phases)
         for phase in self.model.phases:
             self.opendss_dict["Bus1"] += self.phase_map[phase]
-        # TODO: Should we include the phases its connected to here?
+        # OpenDSS kV: LN for single-phase wye, LL for everything else.
+        # For Phases>=2, OpenDSS always expects LL kV regardless of wye/delta.
         nom_voltage = self.model.bus.rated_voltage.to("kV").magnitude
-        self.opendss_dict["kV"] = nom_voltage if num_phases == 1 else nom_voltage * 1.732
+        if num_phases == 1 and self.model.equipment.connection_type not in ("DELTA", "OPEN_DELTA"):
+            self.opendss_dict["kV"] = nom_voltage  # LN for single-phase wye
+        else:
+            self.opendss_dict["kV"] = nom_voltage * 1.732  # LL for multi-phase or delta
 
     def map_phases(self):
         if (

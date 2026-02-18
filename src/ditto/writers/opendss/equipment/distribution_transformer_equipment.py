@@ -42,9 +42,15 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
             num_taps.append(winding.total_taps)
 
             num_phases = winding.num_phases
-            # rated_voltage
+            # rated_voltage — stored as LN in GDM.
+            # OpenDSS kVs: "For 2- or 3-phase, enter phase-phase kV rating.
+            #   Otherwise, enter actual winding kV rating."
+            # So: LL for multi-phase, LN for single-phase.
             nom_voltage = winding.rated_voltage.to("kV").magnitude
-            kvs.append(nom_voltage if num_phases == 1 else nom_voltage * 1.732)
+            if num_phases == 1:
+                kvs.append(nom_voltage)  # LN for single-phase
+            else:
+                kvs.append(nom_voltage * 1.732)  # LL for multi-phase
             # resistance
             pctRs.append(winding.resistance)
             # rated_power
