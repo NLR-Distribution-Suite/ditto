@@ -1,20 +1,17 @@
 from collections import defaultdict
-from io import TextIOWrapper
 from pathlib import Path
 from typing import Any
 
 from infrasys import NonSequentialTimeSeries, SingleTimeSeries
+from pydantic import ValidationError
 from altdss_schema import altdss_models
 from gdm.distribution.components import (
     DistributionVoltageSource,
     DistributionComponentBase,
     DistributionTransformer,
     DistributionBranchBase,
-    MatrixImpedanceSwitch,
     DistributionBus,
 )
-from gdm.distribution.components.matrix_impedance_fuse import MatrixImpedanceFuse
-from gdm.distribution.components.matrix_impedance_recloser import MatrixImpedanceRecloser
 from gdm.distribution.common.curve import TimeCurrentCurve
 from gdm.distribution.equipment import (
     ConcentricCableEquipment,
@@ -39,8 +36,15 @@ class Writer(AbstractWriter):
         if model_map.altdss_composition_name is not None:
             altdss_composition_class = getattr(altdss_models, model_map.altdss_composition_name)
 
-            altdss_composition_object = altdss_composition_class(altdss_object)
-            dss_string = altdss_composition_object.dumps_dss()
+            try:
+                altdss_composition_object = altdss_composition_class(altdss_object)
+                dss_string = altdss_composition_object.dumps_dss()
+            except ValidationError:
+                # Workaround: some altdss_schema composition classes (e.g. Storage)
+                # have a broken RootModel validator. Fall back to dict_dumps_dss.
+                dss_string = altdss_composition_class.dict_dumps_dss(
+                    altdss_object.model_dump(exclude_unset=True)
+                )
         else:
             dss_string = altdss_object.dumps_dss()
         return dss_string
@@ -105,6 +109,17 @@ class Writer(AbstractWriter):
 
                 model_map = mapper(model, self.system)
                 model_map.populate_opendss_dictionary()
+
+                # Bus coordinates: write CSV format so OpenDSS BusCoords
+                # command silently skips buses removed by disabled switches.
+                if model_map.opendss_file == OpenDSSFileTypes.COORDINATE_FILE.value:
+                    d = model_map.opendss_dict
+                    x = d.get("X", 0.0)
+                    y = d.get("Y", 0.0)
+                    output_path.mkdir(exist_ok=True)
+                    with open(output_path / model_map.opendss_file, "a", encoding="utf-8") as fp:
+                        fp.write(f"{d['Name']}, {x}, {y}\n")
+                    continue
 
                 dss_string = self._get_dss_string(model_map)
                 if dss_string.startswith("new Vsource"):
@@ -316,36 +331,6 @@ class Writer(AbstractWriter):
                 fp.write(tcc_dss_string)
             base_redirect.add(output_redirect / tcc_mapper.opendss_file)
 
-    def _write_switch_status(self, file_handler: TextIOWrapper):
-        switches: list[MatrixImpedanceSwitch] = list(
-            self.system.get_components(MatrixImpedanceSwitch)
-        )
-        for switch in switches:
-            if not switch.is_closed[0]:
-                file_handler.write(f"open line.{switch.name}\n")
-
-        # Also handle fuse open/close status
-        try:
-            fuses: list[MatrixImpedanceFuse] = list(
-                self.system.get_components(MatrixImpedanceFuse)
-            )
-            for fuse in fuses:
-                if not fuse.is_closed[0]:
-                    file_handler.write(f"open line.{fuse.name}\n")
-        except Exception:
-            pass  # No fuses in the system
-
-        # Also handle recloser open/close status
-        try:
-            reclosers: list[MatrixImpedanceRecloser] = list(
-                self.system.get_components(MatrixImpedanceRecloser)
-            )
-            for recloser in reclosers:
-                if not recloser.is_closed[0]:
-                    file_handler.write(f"open line.{recloser.name}\n")
-        except Exception:
-            pass  # No reclosers in the system
-
     def _write_base_master(self, base_redirect, output_folder):
         # Only use Masters that have a voltage source, and hence already written.
         sources = list(self.system.get_components(DistributionVoltageSource))
@@ -362,6 +347,13 @@ class Writer(AbstractWriter):
                 equipment = self.system.get_bus_connected_components(
                     bus.name, DistributionBranchBase
                 )
+                # Filter out branches disabled in OpenDSS (open switches/fuses/reclosers)
+                equipment = [
+                    e for e in equipment
+                    if e.in_service and not (
+                        hasattr(e, "is_closed") and not all(e.is_closed)
+                    )
+                ]
                 if equipment:
                     equipment_type = "Line"
                     equipment_name = equipment[0].name
@@ -382,7 +374,6 @@ class Writer(AbstractWriter):
                                 base_master.write("redirect " + str(dss_file))
                                 base_master.write("\n")
                                 break
-                self._write_switch_status(base_master)
                 if has_source and equipment_type:
                     base_master.write(
                         f"New EnergyMeter.SourceMeter element={equipment_type}.{equipment_name}\n"
@@ -390,7 +381,7 @@ class Writer(AbstractWriter):
                 base_master.write(f"Set Voltagebases={self._get_voltage_bases()}\n")
                 base_master.write("calcv\n")
                 base_master.write("Solve\n")
-                base_master.write(f"redirect {OpenDSSFileTypes.COORDINATE_FILE.value}\n")
+                base_master.write(f"BusCoords {OpenDSSFileTypes.COORDINATE_FILE.value}\n")
 
     def _write_substation_master(self, substations_redirect):
         for substation in substations_redirect:

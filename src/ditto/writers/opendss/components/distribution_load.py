@@ -17,7 +17,7 @@ class DistributionLoadMapper(OpenDSSMapper):
     opendss_file = OpenDSSFileTypes.LOADS_FILE.value
 
     def map_in_service(self):
-        self.opendss_dict["enabled"] = self.model.in_service
+        self.opendss_dict["Enabled"] = self.model.in_service
 
     def map_name(self):
         self.opendss_dict["Name"] = self.model.name

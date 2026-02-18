@@ -19,6 +19,8 @@ class MatrixImpedanceFuseMapper(DistributionBranchMapper):
 
     def map_is_closed(self):
         self.opendss_dict["Switch"] = True
+        if not all(self.model.is_closed):
+            self.opendss_dict["Enabled"] = False
 
     def map_in_service(self):
         if not self.model.in_service:

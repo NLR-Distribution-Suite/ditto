@@ -1,18 +1,17 @@
-from gdm.distribution.components import DistributionSolar
+from gdm.distribution.components.distribution_battery import DistributionBattery
 from gdm.distribution import DistributionSystem
-
 
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
 
 
-class DistributionSolarMapper(OpenDSSMapper):
-    def __init__(self, model: DistributionSolar, system: DistributionSystem):
+class DistributionBatteryMapper(OpenDSSMapper):
+    def __init__(self, model: DistributionBattery, system: DistributionSystem):
         super().__init__(model, system)
 
-    altdss_name = "PVSystem_kvar"
-    altdss_composition_name = "PVSystem"
-    opendss_file = OpenDSSFileTypes.SOLAR_FILE.value
+    altdss_name = "Storage_kWRatedkvar"
+    altdss_composition_name = "Storage"
+    opendss_file = OpenDSSFileTypes.STORAGE_FILE.value
 
     def map_in_service(self):
         self.opendss_dict["Enabled"] = self.model.in_service
@@ -29,15 +28,11 @@ class DistributionSolarMapper(OpenDSSMapper):
         self.opendss_dict["Bus1"] = self.model.bus.name
         for phase in self.model.phases:
             self.opendss_dict["Bus1"] += self.phase_map[phase]
-        # TODO: Should we include the phases its connected to here?
         nom_voltage = self.model.bus.rated_voltage.to("kV").magnitude
         self.opendss_dict["kV"] = nom_voltage if num_phases == 1 else nom_voltage * 1.732
 
     def map_phases(self):
         self.opendss_dict["Phases"] = len(self.model.phases)
-
-    def map_irradiance(self):
-        self.opendss_dict["Irradiance"] = self.model.irradiance.to("kilowatt / meter**2").magnitude
 
     def map_active_power(self):
         ...
@@ -49,18 +44,18 @@ class DistributionSolarMapper(OpenDSSMapper):
         ...
 
     def map_inverter(self):
-        # OpenDSS has a unified representation
+        # OpenDSS has a unified Storage representation
         ...
 
     def map_equipment(self):
         equipment = self.model.equipment
         inverter = self.model.inverter
-        self.opendss_dict["Pmpp"] = equipment.rated_power.to("kilowatt").magnitude
+        self.opendss_dict["kWRated"] = equipment.rated_power.to("kilowatt").magnitude
+        self.opendss_dict["kWhRated"] = equipment.rated_energy.to("kilowatthour").magnitude
         self.opendss_dict["kVA"] = inverter.rated_apparent_power.to("kilova").magnitude
-        self.opendss_dict["kvarMaxAbs"] = inverter.rated_apparent_power.to("kilova").magnitude
-        self.opendss_dict["pctR"] = equipment.resistance
-        self.opendss_dict["pctX"] = equipment.reactance
-        self.opendss_dict["pctPmpp"] = inverter.dc_to_ac_efficiency
+        self.opendss_dict["pctEffCharge"] = equipment.charging_efficiency
+        self.opendss_dict["pctEffDischarge"] = equipment.discharging_efficiency
+        self.opendss_dict["pctIdlingkW"] = 100.0 - equipment.idling_efficiency
         self.opendss_dict["pctCutIn"] = inverter.cutin_percent
         self.opendss_dict["pctCutOut"] = inverter.cutout_percent
         if self.model.controller:

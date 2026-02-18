@@ -19,6 +19,8 @@ class MatrixImpedanceRecloserMapper(DistributionBranchMapper):
 
     def map_is_closed(self):
         self.opendss_dict["Switch"] = True
+        if not all(self.model.is_closed):
+            self.opendss_dict["Enabled"] = False
 
     def map_controller(self):
         # Controller is handled separately via write.py's controller loop

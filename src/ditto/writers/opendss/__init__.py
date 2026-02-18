@@ -44,3 +44,4 @@ from ditto.writers.opendss.controllers.voltage_capacitor_controller import (
 )
 from ditto.writers.opendss.profile import ProfileMapper
 from ditto.writers.opendss.components.distribution_solar import DistributionSolarMapper
+from ditto.writers.opendss.components.distribution_battery import DistributionBatteryMapper
