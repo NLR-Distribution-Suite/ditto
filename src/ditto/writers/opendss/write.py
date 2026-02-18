@@ -13,6 +13,8 @@ from gdm.distribution.components import (
     MatrixImpedanceSwitch,
     DistributionBus,
 )
+from gdm.distribution.components.matrix_impedance_recloser import MatrixImpedanceRecloser
+from gdm.distribution.common.curve import TimeCurrentCurve
 from gdm.distribution.equipment import (
     ConcentricCableEquipment,
     BareConductorEquipment,
@@ -21,6 +23,7 @@ from loguru import logger
 
 from ditto.writers.abstract_writer import AbstractWriter
 from ditto.enumerations import OpenDSSFileTypes
+from ditto.writers.opendss.controllers.tcc_curve import TimeCurrentCurveMapper
 import ditto.writers.opendss as opendss_mapper
 
 
@@ -72,6 +75,7 @@ class Writer(AbstractWriter):
 
         seen_equipment = set()
         seen_controller = set()
+        seen_tcc_curves = set()
         seen_profile = set()
 
         output_redirect = Path("")
@@ -121,18 +125,30 @@ class Writer(AbstractWriter):
                         equipment_map.populate_opendss_dictionary()
                         equipment_dss_string = self._get_dss_string(equipment_map)
 
+                # Collect controllers — supports both plural "controllers" and
+                # singular "controller" (e.g. MatrixImpedanceRecloser).
+                controllers_to_write = []
                 if hasattr(model, "controllers"):
-                    for controller in model.controllers:
-                        controller_mapper_name = controller.__class__.__name__ + "Mapper"
-                        if not hasattr(opendss_mapper, controller_mapper_name):
-                            logger.warning(
-                                f"Equipment Mapper {controller_mapper_name} not found. Skipping"
-                            )
-                        else:
-                            controller_mapper = getattr(opendss_mapper, controller_mapper_name)
-                            controller_map = controller_mapper(controller, model.name, self.system)
-                            controller_map.populate_opendss_dictionary()
-                            controller_dss_string = self._get_dss_string(controller_map)
+                    controllers_to_write.extend(model.controllers)
+                elif hasattr(model, "controller") and model.controller is not None:
+                    controllers_to_write.append(model.controller)
+
+                for controller in controllers_to_write:
+                    controller_mapper_name = controller.__class__.__name__ + "Mapper"
+                    if not hasattr(opendss_mapper, controller_mapper_name):
+                        logger.warning(
+                            f"Controller Mapper {controller_mapper_name} not found. Skipping"
+                        )
+                    else:
+                        # Write TCC curves referenced by recloser controllers
+                        self._write_tcc_curves(controller, output_folder,
+                                               seen_tcc_curves, base_redirect,
+                                               output_redirect)
+
+                        controller_mapper = getattr(opendss_mapper, controller_mapper_name)
+                        controller_map = controller_mapper(controller, model.name, self.system)
+                        controller_map.populate_opendss_dictionary()
+                        controller_dss_string = self._get_dss_string(controller_map)
 
                 output_folder = output_path
                 self._build_directory_structure(
@@ -276,6 +292,29 @@ class Writer(AbstractWriter):
             output_redirect /= model_map.feeder
             output_folder.mkdir(exist_ok=True)
 
+    def _write_tcc_curves(self, controller, output_folder, seen_tcc_curves,
+                          base_redirect, output_redirect):
+        """Write TCC_Curve objects referenced by a recloser controller."""
+        tcc_attrs = ["phase_fast", "phase_delayed", "ground_fast", "ground_delayed"]
+        for attr in tcc_attrs:
+            if not hasattr(controller, attr):
+                continue
+            tcc_curve = getattr(controller, attr, None)
+            if tcc_curve is None or not isinstance(tcc_curve, TimeCurrentCurve):
+                continue
+            if tcc_curve.name in seen_tcc_curves:
+                continue
+            seen_tcc_curves.add(tcc_curve.name)
+
+            tcc_mapper = TimeCurrentCurveMapper(tcc_curve, self.system)
+            tcc_mapper.populate_opendss_dictionary()
+            tcc_dss_string = self._get_dss_string(tcc_mapper)
+            with open(
+                output_folder / tcc_mapper.opendss_file, "a", encoding="utf-8"
+            ) as fp:
+                fp.write(tcc_dss_string)
+            base_redirect.add(output_redirect / tcc_mapper.opendss_file)
+
     def _write_switch_status(self, file_handler: TextIOWrapper):
         switches: list[MatrixImpedanceSwitch] = list(
             self.system.get_components(MatrixImpedanceSwitch)
@@ -283,6 +322,17 @@ class Writer(AbstractWriter):
         for switch in switches:
             if not switch.is_closed[0]:
                 file_handler.write(f"open line.{switch.name}\n")
+
+        # Also handle recloser open/close status
+        try:
+            reclosers: list[MatrixImpedanceRecloser] = list(
+                self.system.get_components(MatrixImpedanceRecloser)
+            )
+            for recloser in reclosers:
+                if not recloser.is_closed[0]:
+                    file_handler.write(f"open line.{recloser.name}\n")
+        except Exception:
+            pass  # No reclosers in the system
 
     def _write_base_master(self, base_redirect, output_folder):
         # Only use Masters that have a voltage source, and hence already written.

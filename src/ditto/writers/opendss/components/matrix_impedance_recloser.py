@@ -6,20 +6,24 @@ from ditto.writers.opendss.components.distribution_branch import DistributionBra
 from ditto.enumerations import OpenDSSFileTypes
 
 
-class MatrixImpedanceFuseMapper(DistributionBranchMapper):
+class MatrixImpedanceRecloserMapper(DistributionBranchMapper):
     def __init__(self, model: Component, system: DistributionSystem):
         super().__init__(model, system)
 
     altdss_name = "Line_LineCode"
     altdss_composition_name = "Line"
-    opendss_file = OpenDSSFileTypes.FUSE_FILE.value
+    opendss_file = OpenDSSFileTypes.RECLOSER_FILE.value
 
     def map_equipment(self):
         self.opendss_dict["LineCode"] = self.model.equipment.name
 
     def map_is_closed(self):
-        # Require every phase to be enabled for the OpenDSS line to be enabled.
+        # Model the recloser as a switchable line element
         self.opendss_dict["Switch"] = "true"
+
+    def map_controller(self):
+        # Controller is handled separately via write.py's controller loop
+        pass
 
     def map_in_service(self):
         self.opendss_dict["enabled"] = self.model.in_service
