@@ -19,18 +19,21 @@ class RegulatorControllerMapper(OpenDSSMapper):
     def map_name(self):
         self.opendss_dict["Name"] = self.model.name
         self.opendss_dict["Transformer"] = self.xfmr_name
+        self.opendss_dict["Winding"] = 2
 
     def map_delay(self):
-        self.opendss_dict["TapDelay"] = self.model.delay.to("s").magnitude
+        self.opendss_dict["Delay"] = self.model.delay.to("s").magnitude
+        self.opendss_dict["TapDelay"] = 2.0
 
     def map_v_setpoint(self):
         self.opendss_dict["VReg"] = self.model.v_setpoint.to("volts").magnitude
 
     def map_min_v_limit(self):
-        self.model.min_v_limit.to("volts").magnitude
+        # OpenDSS RegControl has no min voltage limit parameter.
+        pass
 
     def map_max_v_limit(self):
-        self.model.max_v_limit.to("volts").magnitude
+        self.opendss_dict["VLimit"] = self.model.max_v_limit.to("volts").magnitude
 
     def map_pt_ratio(self):
         self.opendss_dict["PTRatio"] = self.model.pt_ratio
