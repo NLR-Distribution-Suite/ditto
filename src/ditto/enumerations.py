@@ -3,7 +3,7 @@ from enum import Enum
 
 class OpenDSSFileTypes(str, Enum):
     MASTER_FILE = "Master.dss"
-    COORDINATE_FILE = "BusCoords.csv"
+    COORDINATE_FILE = "BusCoords.dss"
     LOADSHAPE_FILE = "LoadShape.dss"
     WIRES_FILE = "WireData.dss"
     LINE_GEOMETRIES_FILE = "LineGeometry.dss"

@@ -110,8 +110,10 @@ class Writer(AbstractWriter):
                 model_map = mapper(model, self.system)
                 model_map.populate_opendss_dictionary()
 
-                # Bus coordinates: write CSV format so OpenDSS BusCoords
-                # command silently skips buses removed by disabled switches.
+                # Bus coordinates: write comma-separated format (busname, x, y)
+                # instead of SetBusXY commands.  OpenDSS BusCoords silently
+                # skips unknown bus names (e.g. behind open switches), while
+                # SetBusXY would error on them.
                 if model_map.opendss_file == OpenDSSFileTypes.COORDINATE_FILE.value:
                     d = model_map.opendss_dict
                     x = d.get("X", 0.0)
