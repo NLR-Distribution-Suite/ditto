@@ -14,8 +14,6 @@ from collections import defaultdict
 
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.components import DistributionVoltageSource
-from gdm.quantities import Voltage
-from gdm.distribution.enums import VoltageTypes
 
 
 class Reader(AbstractReader):
@@ -129,6 +127,7 @@ class Reader(AbstractReader):
             mapper_name = component_type + "Mapper"
             if not hasattr(cyme_mapper, mapper_name):
                 logger.warning(f"Mapper {mapper_name} not found. Skipping.")
+                continue
 
             mapper = getattr(cyme_mapper, mapper_name)(self.system)
 
@@ -137,28 +136,11 @@ class Reader(AbstractReader):
             all_cyme_sections = mapper.cyme_section
             if isinstance(all_cyme_sections, str):
                 all_cyme_sections = [all_cyme_sections]
-                if not isinstance(all_cyme_sections, list):
-                    raise ValueError(
-                        f"cyme_section must be a string or list of strings. Got {type(all_cyme_sections)}"
-                    )
+
             for cyme_section in all_cyme_sections:
-                data = None
-                if cyme_file == "Network":
-                    data = read_cyme_data(network_file, cyme_section)
-                elif cyme_file == "Equipment":
-                    data = read_cyme_data(equipment_file, cyme_section)
-                elif cyme_file == "Load":
-                    data = read_cyme_data(load_file, cyme_section)
-                    if load_model_id is not None:
-                        data = data[data["LoadModelID"] == load_model_id]
-                        logger.info(f"Filtered Load data by LoadModelID: {load_model_id}")
-                    else:
-                        if len(data["LoadModelID"].unique()) > 1:
-                            raise ValueError(
-                                f"Multiple LoadModelIDs found in load data: {data['LoadModelID'].unique()}. Please specify load_model_id"
-                            )
-                else:
-                    raise ValueError(f"Unknown CYME file {cyme_file}")
+                data = self._prepare_data(
+                    cyme_file, cyme_section, load_model_id, network_file, equipment_file, load_file
+                )
 
                 argument_handler = {
                     "DistributionCapacitorMapper": lambda: [
@@ -248,7 +230,7 @@ class Reader(AbstractReader):
                     ]
                     self.system.add_components(*components)
 
-        self.system = self.assign_bus_voltages(network_dist_sys=self.system)
+        self.assign_bus_voltages()
 
         if substation_names is not None or feeder_names is not None:
             self.system = network_truncation(
@@ -300,35 +282,41 @@ class Reader(AbstractReader):
                 "Validations errors occured when running the script. See the table above"
             )
 
+    def _prepare_data(
+        self, cyme_file, cyme_section, load_model_id, network_file, equipment_file, load_file
+    ):
+        if cyme_file == "Network":
+            data = read_cyme_data(network_file, cyme_section)
+        elif cyme_file == "Equipment":
+            data = read_cyme_data(equipment_file, cyme_section)
+        elif cyme_file == "Load":
+            data = read_cyme_data(load_file, cyme_section)
+            if load_model_id is not None:
+                data = data[data["LoadModelID"] == load_model_id]
+                logger.info(f"Filtered Load data by LoadModelID: {load_model_id}")
+            else:
+                if len(data["LoadModelID"].unique()) > 1:
+                    raise ValueError(
+                        f"Multiple LoadModelIDs found in load data: {data['LoadModelID'].unique()}. Please specify load_model_id"
+                    )
+        else:
+            raise ValueError(f"Unknown CYME file {cyme_file}")
+
+        return data
+
     def get_system(self) -> DistributionSystem:
         return self.system
 
-    def assign_bus_voltages(self, network_dist_sys=None):
-        bus_queue = set()
+    def assign_bus_voltages(self):
         observed_buses = set()
         observed_components = set()
 
-        bus_obj_map = defaultdict(list)
-        for component_type in self.system.get_component_types():
-            component_list = list(self.system.get_components(component_type))
-            for comp in component_list:
-                if hasattr(comp, "buses"):
-                    for bus in comp.buses:
-                        bus_obj_map[bus.name].append(comp)
+        bus_obj_map = self._create_bus_obj_map()
 
-        voltage_sources = list(self.system.get_components(DistributionVoltageSource))
+        bus_queue = self._start_queue_w_voltage_sources()
 
-        for vsource in voltage_sources:
-            vsource.bus.rated_voltage = (
-                vsource.equipment.sources[0].voltage * 1.732
-                if len(vsource.phases) > 1
-                else vsource.equipment[0].voltage
-            )
-            bus_queue.add(vsource.bus.name)
         while bus_queue:
             current_bus_name = bus_queue.pop()
-            if current_bus_name in observed_buses:
-                continue
 
             current_bus = self.system.get_component(DistributionBus, name=current_bus_name)
             current_voltage = current_bus.rated_voltage
@@ -345,22 +333,45 @@ class Reader(AbstractReader):
                 for j, bus in enumerate(obj.buses):
                     if bus.name == current_bus.name:
                         continue
+
                     if component_type == "DistributionTransformer":
                         for i, winding in enumerate(obj.equipment.windings):
                             voltage = winding.rated_voltage
                             voltage_type = winding.voltage_type
-                            voltage_type = winding.voltage_type
-                            if i == j:
-                                if voltage != current_voltage:
-                                    bus.voltage_type = voltage_type
-                                    bus.rated_voltage = voltage
 
-                        if bus.name not in observed_buses:
-                            bus_queue.add(bus.name)
+                            if i == j and voltage != current_voltage:
+                                bus.voltage_type = voltage_type
+                                bus.rated_voltage = voltage
+
                     else:
                         bus.rated_voltage = current_voltage
                         bus.voltage_type = current_voltage_type
-                        if bus.name not in observed_buses:
-                            bus_queue.add(bus.name)
 
-        return network_dist_sys
+                    if bus.name not in observed_buses:
+                        bus_queue.add(bus.name)
+
+    def _start_queue_w_voltage_sources(self):
+        bus_queue = set()
+
+        voltage_sources = list(self.system.get_components(DistributionVoltageSource))
+
+        for vsource in voltage_sources:
+            vsource.bus.rated_voltage = (
+                vsource.equipment.sources[0].voltage * 1.732
+                if len(vsource.phases) > 1
+                else vsource.equipment[0].voltage
+            )
+            bus_queue.add(vsource.bus.name)
+
+        return bus_queue
+
+    def _create_bus_obj_map(self):
+        bus_obj_map = defaultdict(list)
+        for component_type in self.system.get_component_types():
+            component_list = list(self.system.get_components(component_type))
+            for comp in component_list:
+                if hasattr(comp, "buses"):
+                    for bus in comp.buses:
+                        bus_obj_map[bus.name].append(comp)
+
+        return bus_obj_map
