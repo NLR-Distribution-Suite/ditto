@@ -1,5 +1,3 @@
-from gdm.quantities import Distance, Current, ResistancePULength
-from gdm.distribution.equipment.bare_conductor_equipment import BareConductorEquipment
 from gdm.distribution.distribution_system import DistributionSystem
 from ditto.readers.reader import AbstractReader
 from ditto.readers.cyme.utils import read_cyme_data, network_truncation
@@ -34,7 +32,6 @@ class Reader(AbstractReader):
         "GeometryBranchEquipment",
         "GeometryBranchByPhaseEquipment",
         "GeometryBranch",
-        "GeometryBranchByPhase",
         "DistributionTransformerByPhase",
         "DistributionTransformer",
         "DistributionTransformerThreeWinding",
@@ -83,20 +80,9 @@ class Reader(AbstractReader):
                 "MatrixImpedanceFuseEquipmentMapper",
             ]
         )
-        default_conductor = BareConductorEquipment(
-            name="Default",
-            conductor_diameter=Distance(0.368000, "inch").to("mm"),
-            conductor_gmr=Distance(0.133200, "inch").to("mm"),
-            ampacity=Current(600.0, "amp"),
-            emergency_ampacity=Current(600.0, "amp"),
-            ac_resistance=ResistancePULength(0.555000, "ohm/mile").to("ohm/km"),
-            dc_resistance=ResistancePULength(0.555000, "ohm/mile").to("ohm/km"),
-        )
-        self.system.add_component(default_conductor)
 
         node_feeder_map = {}
         node_substation_map = {}
-        network_voltage_map = {}
         load_record = {}
         used_sections = set()
 
@@ -104,7 +90,6 @@ class Reader(AbstractReader):
             network_file,
             "SECTION",
             node_feeder_map=node_feeder_map,
-            network_voltage_map=network_voltage_map,
             node_substation_map=node_substation_map,
             parse_feeders=True,
             parse_substation=True,
@@ -159,8 +144,11 @@ class Reader(AbstractReader):
                         read_cyme_data(load_file, "LOADS", index_col="DeviceNumber"),
                         load_record,
                     ],
-                    "GeometryBranchMapper": lambda: [used_sections, section_id_sections],
-                    "GeometryBranchByPhaseMapper": lambda: [used_sections, section_id_sections],
+                    "GeometryBranchMapper": lambda: [
+                        used_sections,
+                        section_id_sections,
+                        cyme_section,
+                    ],
                     "BareConductorEquipmentMapper": lambda: [],
                     "GeometryBranchEquipmentMapper": lambda: [
                         read_cyme_data(equipment_file, "SPACING TABLE FOR LINE", index_col="ID")
@@ -279,7 +267,7 @@ class Reader(AbstractReader):
             console = Console()
             console.print(error_table)
             raise Exception(
-                "Validations errors occured when running the script. See the table above"
+                "Validations errors occurred when running the script. See the table above"
             )
 
     def _prepare_data(
@@ -359,7 +347,7 @@ class Reader(AbstractReader):
             vsource.bus.rated_voltage = (
                 vsource.equipment.sources[0].voltage * 1.732
                 if len(vsource.phases) > 1
-                else vsource.equipment[0].voltage
+                else vsource.equipment.sources[0].voltage
             )
             bus_queue.add(vsource.bus.name)
 

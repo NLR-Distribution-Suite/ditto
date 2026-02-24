@@ -67,9 +67,9 @@ class DistributionTransformerEquipmentMapper(CymeMapper):
         return winding_reactances
 
     def map_is_center_tapped(self, row):
-        transformer_type = row["Type"]
         # TODO Center tapped/Split phase not supported
         # This will assign it properly but handling of buses needs to be developed
+        # transformer_type = row["Type"]
         # if transformer_type == '4':
         #    return True
 
@@ -104,6 +104,8 @@ class WindingEquipmentMapper(CymeMapper):
 
     cyme_file = "Equipment"
     cyme_section = "TRANSFORMER"
+
+    """
     connection_map = {
         0: "Y_Y",
         1: "D_Y",
@@ -119,9 +121,11 @@ class WindingEquipmentMapper(CymeMapper):
         11: "Yg_Zg",
         12: "D_Zg",
     }
+    """
 
     # The documentation is confusing on where the below connection types are used
-    # It appears they are used in the equipment file although it is repoted in the network file
+    # It appears they are used in the equipment file although it is reported in the network file
+    # Including the above map incase this is incorrect but the below map appears to be correct based on testing with CYME data
     connection_map = {
         0: "Yg_Yg",
         1: "D_Yg",
@@ -193,12 +197,6 @@ class WindingEquipmentMapper(CymeMapper):
     def map_resistance(self, row, winding_number):
         xr_ratio = float(row["XR"])
         resistance_pu = float(row["Z1"]) / 100 / ((1 + xr_ratio**2) ** 0.5)
-        if winding_number == 1:
-            resistance = resistance_pu * float(row["KVLLprim"]) ** 2 / float(row["KVA"])
-        elif winding_number == 2:
-            resistance = resistance_pu * float(row["KVLLsec"]) ** 2 / float(row["KVA"])
-        elif winding_number == 3:
-            resistance = resistance_pu * float(row["KVLLsec"]) ** 2 / float(row["KVA"])
         return resistance_pu * 100
 
     def map_is_grounded(self, row, winding_number):
@@ -258,10 +256,9 @@ class WindingEquipmentMapper(CymeMapper):
         connection_type = row["Conn"]
         if winding_number == 1:
             winding = 0
-        elif winding_number == 2:
+        elif winding_number == 2 or winding_number == 3:
             winding = 1
-        elif winding_number == 3:
-            winding = 1
+
         if isinstance(connection_type, int) or (
             isinstance(connection_type, str) and connection_type.isdigit()
         ):
@@ -269,20 +266,22 @@ class WindingEquipmentMapper(CymeMapper):
             winding_type = self.connection_map.get(conn_type_int, "Y_Y").split("_")[winding]
         else:
             winding_type = str(connection_type)
-        if winding_type == "YO":
-            connection_type = "OPEN_STAR"
-        elif winding_type == "DO":
-            connection_type = "OPEN_DELTA"
+
+        winding_connection_map = {
+            "YO": "OPEN_STAR",
+            "DO": "OPEN_DELTA",
+            "DCT": "DELTA",
+            "CT": "STAR",
+        }
+
+        if winding_type in winding_connection_map:
+            connection_type = winding_connection_map[winding_type]
         elif "Z" in winding_type:
             connection_type = "ZIG_ZAG"
         elif "Y" in winding_type:
             connection_type = "STAR"
         elif "D" in winding_type:
             connection_type = "DELTA"
-        elif "DCT" == winding_type:
-            connection_type = "DELTA"
-        elif "CT" == winding_type:
-            connection_type = "STAR"
         else:
             connection_type = "STAR"
 
@@ -301,7 +300,7 @@ class WindingEquipmentMapper(CymeMapper):
                     tap = network_row.get("PrimaryTapSettingA", 100)
                 tap = float(tap) / 100
 
-        elif winding_number == 2:
+        elif winding_number == 2 or winding_number == 3:
             if network_row is None:
                 tap = 1.0
             else:
@@ -309,16 +308,7 @@ class WindingEquipmentMapper(CymeMapper):
                 if tap is None:
                     tap = network_row.get("SecondaryTapSettingA", 100)
                 tap = float(tap) / 100
-        elif winding_number == 3:
-            if network_row is None:
-                tap = 1.0
-            else:
-                tap = network_row.get("SecTap", None)
-                if tap is None:
-                    tap = network_row.get(
-                        "SecondaryTapSettingA",
-                    )
-                tap = float(tap) / 100
+
         if row["Taps"] == "" or row["Taps"] is None:
             tap = 1.0
         for phase in range(1, num_phases + 1):

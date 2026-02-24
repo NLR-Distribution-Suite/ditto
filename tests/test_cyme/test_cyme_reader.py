@@ -1,6 +1,5 @@
 """ Module for testing parsers."""
 from pathlib import Path
-import os
 import pytest
 from ditto.readers.cyme.reader import Reader
 from ditto.writers.opendss.write import Writer
@@ -27,21 +26,25 @@ for folder in Path(cyme_circuit_models).rglob("*"):
         if target_files.issubset(files_in_folder):
             matching_folders.append(folder)
 
+
 @pytest.mark.parametrize("cyme_folder", matching_folders)
 def test_cyme_reader(cyme_folder: Path, tmp_path):
-
     export_path = base_path / "dump_from_tests" / "cyme" / cyme_folder.name
     if not export_path.exists():
         export_path.mkdir(parents=True, exist_ok=True)
 
-    reader = Reader(cyme_folder / cyme_network_name, cyme_folder / cyme_equipment_name, cyme_folder / cyme_load_name, '1')
+    load_model_id = "1"
+    reader = Reader(
+        cyme_folder / cyme_network_name,
+        cyme_folder / cyme_equipment_name,
+        cyme_folder / cyme_load_name,
+        load_model_id,
+    )
     writer = Writer(reader.get_system())
     writer.write(export_path / "opendss", separate_substations=False, separate_feeders=False)
     system = reader.get_system()
     json_path = (export_path / cyme_folder.stem.lower()).with_suffix(".json")
     system.to_json(json_path, overwrite=True, indent=4)
     system.to_geojson(export_path / (cyme_folder.stem.lower() + ".geojson"))
-  
- 
 
     assert json_path.exists(), "Failed to export the json file"
