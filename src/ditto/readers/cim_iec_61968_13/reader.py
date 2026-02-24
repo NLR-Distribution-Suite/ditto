@@ -156,66 +156,78 @@ class Reader(AbstractReader):
         logger.info(f"CIM parse summary: {parse_summary}")
         logger.info("System summary: ", self.system.info())
 
+    def _select_transformer_winding_rows(
+        self, xfmr_df: pd.DataFrame, windings: list
+    ) -> tuple[list[str], list[pd.Series]]:
+        selected_buses: list[str] = []
+        winding_rows: list[pd.Series] = []
+
+        for winding in windings:
+            winding_rows_df = xfmr_df[xfmr_df["winding"] == winding]
+            if winding_rows_df.empty:
+                continue
+
+            bus_candidates = winding_rows_df["bus"].drop_duplicates().to_list()
+            selected_bus = next(
+                (candidate for candidate in bus_candidates if candidate not in selected_buses),
+                bus_candidates[0],
+            )
+            selected_buses.append(selected_bus)
+
+            selected_row = winding_rows_df[winding_rows_df["bus"] == selected_bus]
+            winding_rows.append(selected_row.iloc[0])
+
+        return selected_buses, winding_rows
+
+    def _build_winding_series(self, winding_rows: list[pd.Series], windings: list) -> pd.Series:
+        winding_df = pd.DataFrame(winding_rows).drop(columns=["winding", "bus"], errors="ignore")
+
+        winding_series = []
+        for winding, (_, winding_data) in zip(windings, winding_df.iterrows()):
+            winding_data.index = [
+                f"wdg_{winding}_" + column_name for column_name in winding_data.index
+            ]
+            winding_series.append(winding_data)
+
+        return pd.concat(winding_series)
+
+    def _attach_winding_coupling_data(self, wdgs: pd.Series, winding_df: pd.DataFrame) -> None:
+        for _, wdg_coupling_data in winding_df.iterrows():
+            xfmr_ends = {wdg_coupling_data["xfmr_end_1"], wdg_coupling_data["xfmr_end_2"]}
+            if not xfmr_ends.intersection(wdgs.to_list()):
+                continue
+
+            wdgs["r0"] = wdg_coupling_data["r0"]
+            wdgs["r1"] = wdg_coupling_data["r1"]
+            wdgs["x0"] = wdg_coupling_data["x0"]
+            wdgs["x1"] = wdg_coupling_data["x1"]
+            wdgs["winding"] = wdg_coupling_data["winding"]
+
     def _build_xfmr_dataset(
         self, xfmr_data: pd.DataFrame, winding_df: pd.DataFrame = pd.DataFrame()
     ) -> pd.DataFrame:
         if xfmr_data.empty or "xfmr" not in xfmr_data.columns:
             return pd.DataFrame()
 
-        xfmrs = xfmr_data["xfmr"].unique()
         xfms = []
-        for xfmr in xfmrs:
-            xfmr_df = xfmr_data[xfmr_data["xfmr"] == xfmr]
-            xfmr_df.pop("xfmr")
+        for xfmr in xfmr_data["xfmr"].unique():
+            xfmr_df = xfmr_data[xfmr_data["xfmr"] == xfmr].copy()
+            xfmr_df.drop(columns=["xfmr"], inplace=True, errors="ignore")
             windings = xfmr_df["winding"].drop_duplicates().to_list()
-            selected_buses = []
-            winding_rows = []
-            for winding in windings:
-                winding_rows_df = xfmr_df[xfmr_df["winding"] == winding]
-                if winding_rows_df.empty:
-                    continue
-
-                bus_candidates = winding_rows_df["bus"].drop_duplicates().to_list()
-                selected_bus = next(
-                    (candidate for candidate in bus_candidates if candidate not in selected_buses),
-                    bus_candidates[0],
-                )
-                selected_buses.append(selected_bus)
-
-                selected_row = winding_rows_df[winding_rows_df["bus"] == selected_bus]
-                winding_rows.append(selected_row.iloc[0])
+            selected_buses, winding_rows = self._select_transformer_winding_rows(xfmr_df, windings)
 
             if not winding_rows:
                 continue
 
-            xfmr_df = pd.DataFrame(winding_rows)
-            if "winding" in xfmr_df.columns:
-                xfmr_df = xfmr_df.drop(columns=["winding"])
-            if "bus" in xfmr_df.columns:
-                xfmr_df = xfmr_df.drop(columns=["bus"])
-
-            wdgs = []
-            for winding, (_, winding_data) in zip(windings, xfmr_df.iterrows()):
-                winding_data.index = [f"wdg_{winding}_" + c for c in winding_data.index]
-                wdgs.append(winding_data)
-            wdgs = pd.concat(wdgs)
+            wdgs = self._build_winding_series(winding_rows, windings)
             if selected_buses:
                 wdgs["bus_1"] = selected_buses[0]
                 wdgs["bus_2"] = selected_buses[1] if len(selected_buses) > 1 else selected_buses[0]
             wdgs["xfmr"] = xfmr
-            for _, wdg_coupling_data in winding_df.iterrows():
-                xfmr_ends = {wdg_coupling_data["xfmr_end_1"], wdg_coupling_data["xfmr_end_2"]}
-                intersection = xfmr_ends.intersection(wdgs.to_list())
-                if intersection:
-                    wdgs["r0"] = wdg_coupling_data["r0"]
-                    wdgs["r1"] = wdg_coupling_data["r1"]
-                    wdgs["x0"] = wdg_coupling_data["x0"]
-                    wdgs["x1"] = wdg_coupling_data["x1"]
-                    wdgs["winding"] = wdg_coupling_data["winding"]
+            self._attach_winding_coupling_data(wdgs, winding_df)
             xfms.append(wdgs)
 
-        xfmr_dataset = pd.DataFrame(xfms)
-        return xfmr_dataset
+        return pd.DataFrame(xfms)
 
     def _set_bus_phases(
         self, df_dict: dict[DistributionComponentBase, pd.DataFrame]

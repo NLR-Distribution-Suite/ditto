@@ -73,7 +73,7 @@ class Writer(AbstractWriter):
         seen_profile = set()
 
         output_redirect = Path("")
-        profiles = self._write_profiles(output_path, seen_profile, output_redirect, base_redirect)
+        self._write_profiles(output_path, seen_profile, output_redirect, base_redirect)
         for component_type in component_types:
             # Example component_type is DistributionBus
             components = self.system.get_components(component_type)

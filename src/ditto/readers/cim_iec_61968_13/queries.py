@@ -1,4 +1,4 @@
-from functools import lru_cache, reduce
+from functools import lru_cache
 
 from rdflib.query import Result
 from loguru import logger
@@ -384,60 +384,89 @@ def query_distribution_buses(graph: Graph) -> pd.DataFrame:
     return final_data
 
 
+def _group_node_location_ids(loc_df: pd.DataFrame) -> pd.DataFrame:
+    grouped_data = loc_df[["node", "reg_loc_id", "xfmr_loc_id", "line_loc_id"]].groupby(
+        "node", as_index=False
+    )
+    grouped_data = grouped_data.agg(
+        {
+            "reg_loc_id": lambda values: list(filter(None, values)),
+            "xfmr_loc_id": lambda values: list(filter(None, values)),
+            "line_loc_id": lambda values: list(filter(None, values)),
+        }
+    )
+    grouped_data["merged_ids"] = grouped_data.apply(
+        lambda row: row["reg_loc_id"] + row["xfmr_loc_id"] + row["line_loc_id"],
+        axis=1,
+    )
+    return grouped_data[["node", "merged_ids"]]
+
+
+def _intersect_node_coordinates(
+    grouped_ids: pd.DataFrame, location_dict: dict
+) -> tuple[dict[str, tuple], dict[str, set]]:
+    coordinate_map: dict[str, tuple] = {}
+    ambiguous_map: dict[str, set] = {}
+
+    for node, ids in grouped_ids.itertuples(index=False):
+        coordinate_sets = []
+        for coord_id in ids:
+            location_coordinates = location_dict.get(coord_id)
+            if location_coordinates:
+                coordinate_sets.append(set(location_coordinates))
+
+        if not coordinate_sets:
+            continue
+
+        overlap = set.intersection(*coordinate_sets)
+        if len(overlap) == 1:
+            coordinate_map[node] = list(overlap)[0]
+            continue
+
+        if overlap:
+            ambiguous_map[node] = overlap
+
+    return coordinate_map, ambiguous_map
+
+
+def _resolve_ambiguous_coordinates(
+    coordinate_map: dict[str, tuple], ambiguous_map: dict[str, set]
+) -> dict[str, tuple]:
+    resolved: dict[str, tuple] = {}
+    used_coordinates = set(coordinate_map.values())
+
+    for node_unknown, coordinates in ambiguous_map.items():
+        remaining_coordinates = set(coordinates).difference(used_coordinates)
+        if len(remaining_coordinates) == 1:
+            selected_coordinate = list(remaining_coordinates)[0]
+            resolved[node_unknown] = selected_coordinate
+            used_coordinates.add(selected_coordinate)
+            continue
+
+        if len(remaining_coordinates) > 1:
+            logger.warning(
+                f"Node {node_unknown} has more than 1 location. Please correct this manually"
+            )
+
+    return resolved
+
+
+def _coordinate_dataframe(coordinate_map: dict[str, tuple]) -> pd.DataFrame:
+    final_coordinate_map = {
+        node: {"x": coordinate[0], "y": coordinate[1]}
+        for node, coordinate in coordinate_map.items()
+    }
+    return pd.DataFrame(final_coordinate_map).T
+
+
 def _get_bus_coordinates(loc_df: pd.DataFrame, location_dict: dict) -> pd.DataFrame:
     if loc_df.empty:
         return _empty_df(["x", "y"])
 
-    filt_data = loc_df[["node", "reg_loc_id", "xfmr_loc_id", "line_loc_id"]]
-    df_grouped = filt_data.groupby("node", as_index=False).agg(
-        {
-            "reg_loc_id": lambda x: list(filter(None, x)),
-            "xfmr_loc_id": lambda x: list(filter(None, x)),
-            "line_loc_id": lambda x: list(filter(None, x)),
-        }
-    )
-    df_grouped["merged_ids"] = df_grouped.apply(
-        lambda row: row["reg_loc_id"] + row["xfmr_loc_id"] + row["line_loc_id"], axis=1
-    )
-    df_grouped = df_grouped[["node", "merged_ids"]]
-    coordinate_map = {}
-    coordinates_to_be_corrected = {}
-    for _, row in df_grouped.iterrows():
-        node = row["node"]
-        ids = row["merged_ids"]
-        coordinates = []
-
-        for cood_id in ids:
-            location_coordinates = location_dict.get(cood_id)
-            if location_coordinates:
-                coordinates.append(set(location_coordinates))
-        if not coordinates:
-            continue
-        result = reduce(lambda x, y: x & y, coordinates)
-        if len(result) == 1:
-            coordinate_map[node] = list(result)[0]
-        else:
-            coordinates_to_be_corrected[node] = result
-
-    coordinate_map_fix = {}
-    for node_unknown, coordinates in coordinates_to_be_corrected.items():
-        coordinates = set(coordinates)
-        for _, coordinate in coordinate_map.items():
-            if coordinate in coordinates:
-                coordinates.remove(coordinate)
-                if len(coordinates) == 1:
-                    coordinate_map_fix[node_unknown] = list(coordinates)[0]
-                else:
-                    logger.warning(
-                        f"Node {node_unknown} has more than 1 location. Please correct this manually"
-                    )
-
-    coordinate_map = {**coordinate_map, **coordinate_map_fix}
-    final_coordinate_map = {}
-    for node, coordinate in coordinate_map.items():
-        final_coordinate_map[node] = {"x": coordinate[0], "y": coordinate[1]}
-
-    return pd.DataFrame(final_coordinate_map).T
+    grouped_ids = _group_node_location_ids(loc_df)
+    coordinate_map, ambiguous_map = _intersect_node_coordinates(grouped_ids, location_dict)
+    coordinate_map.update(_resolve_ambiguous_coordinates(coordinate_map, ambiguous_map))
+    return _coordinate_dataframe(coordinate_map)
 
 
 def _get_bus_base_voltages(data: pd.DataFrame) -> pd.DataFrame:

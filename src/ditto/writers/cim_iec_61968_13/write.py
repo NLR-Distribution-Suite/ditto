@@ -315,62 +315,97 @@ class Writer(AbstractWriter):
         output_file.parent.mkdir(parents=True, exist_ok=True)
         tree.write(output_file, encoding="utf-8", xml_declaration=True)
 
+    @staticmethod
+    def _components_by_name(components: list) -> dict[str, list]:
+        grouped_components: dict[str, list] = defaultdict(list)
+        for component in components:
+            grouped_components[component.__class__.__name__].append(component)
+        return grouped_components
+
+    @staticmethod
+    def _has_single_bus(component, bus_node_ids: dict[str, str]) -> bool:
+        bus = getattr(component, "bus", None)
+        return bus is not None and bus.name in bus_node_ids
+
+    @staticmethod
+    def _has_two_buses(component, bus_node_ids: dict[str, str]) -> bool:
+        buses = list(getattr(component, "buses", []))
+        if len(buses) < 2:
+            return False
+        return buses[0].name in bus_node_ids and buses[1].name in bus_node_ids
+
+    def _emit_single_bus_components(
+        self,
+        root: ET.Element,
+        components_by_name: dict[str, list],
+        bus_node_ids: dict[str, str],
+        bus_location_ids: dict[str, str],
+        base_voltage_cache: dict[str, str],
+    ) -> None:
+        single_bus_emitters = [
+            ("DistributionVoltageSource", emit_energy_source),
+            ("DistributionLoad", emit_energy_consumer),
+            ("DistributionCapacitor", emit_capacitor),
+            ("DistributionSolar", emit_solar),
+            ("DistributionBattery", emit_battery),
+        ]
+
+        for component_name, emitter in single_bus_emitters:
+            for component in components_by_name.get(component_name, []):
+                if not self._has_single_bus(component, bus_node_ids):
+                    continue
+                emitter(self, root, component, bus_node_ids, bus_location_ids, base_voltage_cache)
+
+    def _emit_two_bus_components(
+        self,
+        root: ET.Element,
+        components_by_name: dict[str, list],
+        bus_node_ids: dict[str, str],
+        bus_location_ids: dict[str, str],
+        base_voltage_cache: dict[str, str],
+        emitted_line_code_ids: set[str],
+    ) -> None:
+        for branch in components_by_name.get("MatrixImpedanceBranch", []):
+            if not self._has_two_buses(branch, bus_node_ids):
+                continue
+            emit_line_segment(
+                self,
+                root,
+                branch,
+                bus_node_ids,
+                bus_location_ids,
+                base_voltage_cache,
+                emitted_line_code_ids,
+            )
+
+        for transformer in components_by_name.get("DistributionTransformer", []):
+            if not self._has_two_buses(transformer, bus_node_ids):
+                continue
+            emit_distribution_transformer(
+                self,
+                root,
+                transformer,
+                bus_node_ids,
+                bus_location_ids,
+                base_voltage_cache,
+            )
+
+        for regulator in components_by_name.get("DistributionRegulator", []):
+            if not self._has_two_buses(regulator, bus_node_ids):
+                continue
+            emit_regulator(
+                self, root, regulator, bus_node_ids, bus_location_ids, base_voltage_cache
+            )
+
+        for switch in components_by_name.get("MatrixImpedanceSwitch", []):
+            emit_switch(self, root, switch, bus_node_ids, bus_location_ids, base_voltage_cache)
+
+        for fuse in components_by_name.get("MatrixImpedanceFuse", []):
+            emit_fuse(self, root, fuse, bus_node_ids, bus_location_ids, base_voltage_cache)
+
     def _populate_core_graph(self, root: ET.Element, components: list) -> None:
-        buses = [
-            component
-            for component in components
-            if component.__class__.__name__ == "DistributionBus"
-        ]
-        sources = [
-            component
-            for component in components
-            if component.__class__.__name__ == "DistributionVoltageSource"
-        ]
-        loads = [
-            component
-            for component in components
-            if component.__class__.__name__ == "DistributionLoad"
-        ]
-        branches = [
-            component
-            for component in components
-            if component.__class__.__name__ == "MatrixImpedanceBranch"
-        ]
-        transformers = [
-            component
-            for component in components
-            if component.__class__.__name__ == "DistributionTransformer"
-        ]
-        regulators = [
-            component
-            for component in components
-            if component.__class__.__name__ == "DistributionRegulator"
-        ]
-        capacitors = [
-            component
-            for component in components
-            if component.__class__.__name__ == "DistributionCapacitor"
-        ]
-        switches = [
-            component
-            for component in components
-            if component.__class__.__name__ == "MatrixImpedanceSwitch"
-        ]
-        solars = [
-            component
-            for component in components
-            if component.__class__.__name__ == "DistributionSolar"
-        ]
-        batteries = [
-            component
-            for component in components
-            if component.__class__.__name__ == "DistributionBattery"
-        ]
-        fuses = [
-            component
-            for component in components
-            if component.__class__.__name__ == "MatrixImpedanceFuse"
-        ]
+        components_by_name = self._components_by_name(components)
+        buses = components_by_name.get("DistributionBus", [])
 
         bus_node_ids: dict[str, str] = {}
         bus_location_ids: dict[str, str] = {}
@@ -379,71 +414,126 @@ class Writer(AbstractWriter):
 
         self._create_bus_objects(root, buses, bus_node_ids, bus_location_ids)
 
-        for source in sources:
-            if source.bus.name in bus_node_ids:
-                emit_energy_source(
-                    self, root, source, bus_node_ids, bus_location_ids, base_voltage_cache
-                )
+        self._emit_single_bus_components(
+            root,
+            components_by_name,
+            bus_node_ids,
+            bus_location_ids,
+            base_voltage_cache,
+        )
 
-        for load in loads:
-            if load.bus.name in bus_node_ids:
-                emit_energy_consumer(
-                    self, root, load, bus_node_ids, bus_location_ids, base_voltage_cache
-                )
+        self._emit_two_bus_components(
+            root,
+            components_by_name,
+            bus_node_ids,
+            bus_location_ids,
+            base_voltage_cache,
+            emitted_line_code_ids,
+        )
 
-        for branch in branches:
-            if branch.buses[0].name in bus_node_ids and branch.buses[1].name in bus_node_ids:
-                emit_line_segment(
-                    self,
-                    root,
-                    branch,
-                    bus_node_ids,
-                    bus_location_ids,
-                    base_voltage_cache,
-                    emitted_line_code_ids,
-                )
+    def _collect_components(self, component_types: list[type]) -> list:
+        components = []
+        for component_type in component_types:
+            components.extend(self.system.get_components(component_type))
+        return components
 
-        for transformer in transformers:
-            if (
-                len(transformer.buses) >= 2
-                and transformer.buses[0].name in bus_node_ids
-                and transformer.buses[1].name in bus_node_ids
-            ):
-                emit_distribution_transformer(
-                    self,
-                    root,
-                    transformer,
-                    bus_node_ids,
-                    bus_location_ids,
-                    base_voltage_cache,
+    def _build_package_groups(
+        self,
+        component_types: list[type],
+        separate_substations: bool,
+        separate_feeders: bool,
+    ) -> dict[tuple[str, str], list]:
+        groups: dict[tuple[str, str], list] = defaultdict(list)
+        for component_type in component_types:
+            for component in self.system.get_components(component_type):
+                substation_name, feeder_name = self._get_component_group(component)
+                group_key = (
+                    substation_name if separate_substations else "all_substations",
+                    feeder_name if separate_feeders else "all_feeders",
                 )
+                groups[group_key].append(component)
+        return groups
 
-        for regulator in regulators:
-            if (
-                len(regulator.buses) >= 2
-                and regulator.buses[0].name in bus_node_ids
-                and regulator.buses[1].name in bus_node_ids
-            ):
-                emit_regulator(
-                    self, root, regulator, bus_node_ids, bus_location_ids, base_voltage_cache
-                )
+    @staticmethod
+    def _add_manifest_file_entry(
+        manifest: ET.Element,
+        substation_name: str,
+        feeder_name: str,
+        file_type: str,
+        relative_path: Path,
+    ) -> None:
+        ET.SubElement(
+            manifest,
+            "cim:File",
+            attrib={
+                "substation": substation_name,
+                "feeder": feeder_name,
+                "type": file_type,
+                "path": str(relative_path),
+            },
+        )
 
-        for capacitor in capacitors:
-            emit_capacitor(
-                self, root, capacitor, bus_node_ids, bus_location_ids, base_voltage_cache
+    def _write_single_output(self, output_path: Path, component_types: list[type]) -> None:
+        root = self._build_root()
+        components = self._collect_components(component_types)
+        self._populate_core_graph(root, components)
+        self._write_xml(root, output_path / "model.xml")
+
+    def _write_combined_package_file(
+        self,
+        manifest: ET.Element,
+        folder: Path,
+        substation_name: str,
+        feeder_name: str,
+        components: list,
+    ) -> None:
+        file_name = f"{substation_name}__{feeder_name}.xml"
+        root = self._build_root()
+        self._populate_core_graph(root, components)
+        self._write_xml(root, folder / file_name)
+        self._add_manifest_file_entry(
+            manifest,
+            substation_name,
+            feeder_name,
+            "all",
+            Path(substation_name) / feeder_name / file_name,
+        )
+
+    def _write_split_package_files(
+        self,
+        manifest: ET.Element,
+        folder: Path,
+        substation_name: str,
+        feeder_name: str,
+        components: list,
+    ) -> None:
+        buses = [
+            component
+            for component in components
+            if component.__class__.__name__ == "DistributionBus"
+        ]
+        component_buckets: dict[str, list] = defaultdict(list)
+        for component in components:
+            component_key = self._component_type_key(component)
+            if component_key is None:
+                continue
+            component_buckets[component_key].append(component)
+
+        for component_key, bucket_components in component_buckets.items():
+            file_components = self._combine_with_required_buses(bucket_components, buses)
+            file_suffix = self._camel_to_snake(component_key)
+            file_name = f"{substation_name}__{feeder_name}__{file_suffix}.xml"
+            root = self._build_root()
+            self._populate_core_graph(root, file_components)
+            self._write_xml(root, folder / file_name)
+
+            self._add_manifest_file_entry(
+                manifest,
+                substation_name,
+                feeder_name,
+                component_key,
+                Path(substation_name) / feeder_name / file_name,
             )
-
-        for switch in switches:
-            emit_switch(self, root, switch, bus_node_ids, bus_location_ids, base_voltage_cache)
-
-        for solar in solars:
-            emit_solar(self, root, solar, bus_node_ids, bus_location_ids, base_voltage_cache)
-
-        for battery in batteries:
-            emit_battery(self, root, battery, bus_node_ids, bus_location_ids, base_voltage_cache)
-
-        for fuse in fuses:
-            emit_fuse(self, root, fuse, bus_node_ids, bus_location_ids, base_voltage_cache)
 
     def write(
         self,
@@ -461,28 +551,15 @@ class Writer(AbstractWriter):
         )
 
         if output_mode == "single":
-            root = self._build_root()
-            components = []
-            for component_type in component_types:
-                components.extend(self.system.get_components(component_type))
-
-            self._populate_core_graph(root, components)
-
-            self._write_xml(root, output_path / "model.xml")
+            self._write_single_output(output_path, component_types)
             return
 
         if output_mode != "package":
             raise ValueError("output_mode must be either 'single' or 'package'")
 
-        groups: dict[tuple[str, str], list] = defaultdict(list)
-        for component_type in component_types:
-            for component in self.system.get_components(component_type):
-                substation_name, feeder_name = self._get_component_group(component)
-                group_key = (
-                    substation_name if separate_substations else "all_substations",
-                    feeder_name if separate_feeders else "all_feeders",
-                )
-                groups[group_key].append(component)
+        groups = self._build_package_groups(
+            component_types, separate_substations, separate_feeders
+        )
 
         manifest = ET.Element(
             "PackageManifest",
@@ -494,51 +571,13 @@ class Writer(AbstractWriter):
             folder = output_path / substation_name / feeder_name
 
             if not separate_equipment_types:
-                file_name = f"{substation_name}__{feeder_name}.xml"
-                root = self._build_root()
-                self._populate_core_graph(root, components)
-                self._write_xml(root, folder / file_name)
-                ET.SubElement(
-                    manifest,
-                    "cim:File",
-                    attrib={
-                        "substation": substation_name,
-                        "feeder": feeder_name,
-                        "type": "all",
-                        "path": str(Path(substation_name) / feeder_name / file_name),
-                    },
+                self._write_combined_package_file(
+                    manifest, folder, substation_name, feeder_name, components
                 )
                 continue
 
-            buses = [
-                component
-                for component in components
-                if component.__class__.__name__ == "DistributionBus"
-            ]
-            component_buckets: dict[str, list] = defaultdict(list)
-            for component in components:
-                component_key = self._component_type_key(component)
-                if component_key is None:
-                    continue
-                component_buckets[component_key].append(component)
-
-            for component_key, bucket_components in component_buckets.items():
-                file_components = self._combine_with_required_buses(bucket_components, buses)
-                file_suffix = self._camel_to_snake(component_key)
-                file_name = f"{substation_name}__{feeder_name}__{file_suffix}.xml"
-                root = self._build_root()
-                self._populate_core_graph(root, file_components)
-                self._write_xml(root, folder / file_name)
-
-                ET.SubElement(
-                    manifest,
-                    "cim:File",
-                    attrib={
-                        "substation": substation_name,
-                        "feeder": feeder_name,
-                        "type": component_key,
-                        "path": str(Path(substation_name) / feeder_name / file_name),
-                    },
-                )
+            self._write_split_package_files(
+                manifest, folder, substation_name, feeder_name, components
+            )
 
         self._write_xml(manifest, output_path / "manifest.xml")
