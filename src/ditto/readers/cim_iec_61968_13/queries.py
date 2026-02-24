@@ -87,17 +87,38 @@ def _empty_df(columns: list[str]) -> pd.DataFrame:
     return pd.DataFrame(columns=columns)
 
 
-def query_line_codes(graph: Graph) -> pd.DataFrame:
-    columns = ["line_code", "phase_count", "r", "x", "b", "row", "column", "ampacity"]
+def _line_code_empty_df() -> pd.DataFrame:
+    return _empty_df(
+        ["line_code", "phase_count", "r", "x", "b", "ampacity_normal", "ampacity_emergency"]
+    )
 
-    sparql_query_ac_line_segment = """
-    SELECT  ?line_code ?phase_count ?r ?x ?b ?row ?column ?ampacity
+
+def _line_code_lower_triangle(
+    values_df: pd.DataFrame, value_column: str, matrix_size: int
+) -> list[float]:
+    matrix = np.zeros((matrix_size, matrix_size), dtype=float)
+    row_indices = pd.to_numeric(values_df["row"], errors="coerce").fillna(0).astype(int) - 1
+    column_indices = pd.to_numeric(values_df["column"], errors="coerce").fillna(0).astype(int) - 1
+    values = pd.to_numeric(values_df[value_column], errors="coerce").fillna(0.0).to_numpy()
+
+    valid_mask = (
+        (row_indices >= 0)
+        & (column_indices >= 0)
+        & (row_indices < matrix_size)
+        & (column_indices < matrix_size)
+    )
+    matrix[row_indices[valid_mask], column_indices[valid_mask]] = values[valid_mask]
+
+    lower_row_indices, lower_col_indices = np.tril_indices(matrix_size)
+    return matrix[lower_row_indices, lower_col_indices].tolist()
+
+
+def query_line_codes(graph: Graph) -> pd.DataFrame:
+    impedance_columns = ["line_code", "phase_count", "r", "x", "b", "row", "column"]
+    impedance_query = """
+    SELECT ?line_code ?phase_count ?r ?x ?b ?row ?column
     WHERE {
-        ?term rdf:type cim:Terminal .
-        ?term cim:Terminal.ConductingEquipment ?line .
-        ?term cim:ACDCTerminal.OperationalLimitSet ?oplimset .
         ?line cim:ACLineSegment.PerLengthImpedance ?pu_phs_imp .
-        # ?pu_phs_imp rdf:type cim:PerLengthPhaseImpedance .
         ?pu_phs_imp cim:IdentifiedObject.name ?line_code .
         ?pu_phs_imp cim:PerLengthPhaseImpedance.conductorCount ?phase_count .
         ?phase_imp_data rdf:type cim:PhaseImpedanceData .
@@ -107,49 +128,55 @@ def query_line_codes(graph: Graph) -> pd.DataFrame:
         ?phase_imp_data cim:PhaseImpedanceData.b ?b .
         ?phase_imp_data cim:PhaseImpedanceData.row ?row .
         ?phase_imp_data cim:PhaseImpedanceData.column ?column .
+    }
+    """
+
+    ampacity_columns = ["line_code", "ampacity"]
+    ampacity_query = """
+    SELECT ?line_code ?ampacity
+    WHERE {
+        ?line cim:ACLineSegment.PerLengthImpedance ?pu_phs_imp .
+        ?pu_phs_imp cim:IdentifiedObject.name ?line_code .
+        ?term rdf:type cim:Terminal .
+        ?term cim:Terminal.ConductingEquipment ?line .
+        ?term cim:ACDCTerminal.OperationalLimitSet ?oplimset .
         ?curr_lim_set rdf:type cim:CurrentLimit .
         ?curr_lim_set cim:OperationalLimit.OperationalLimitSet ?oplimset .
         ?curr_lim_set cim:CurrentLimit.value ?ampacity .
     }
     """
-    data = _query_dataframe(graph, sparql_query_ac_line_segment, columns)
-    if data.empty:
-        return _empty_df(
-            ["line_code", "phase_count", "r", "x", "b", "ampacity_normal", "ampacity_emergency"]
+    impedance_data = _query_dataframe(graph, impedance_query, impedance_columns)
+    if impedance_data.empty:
+        return _line_code_empty_df()
+
+    ampacity_data = _query_dataframe(graph, ampacity_query, ampacity_columns)
+    ampacity_map: dict[str, list[float]] = {}
+    if not ampacity_data.empty:
+        ampacity_data = ampacity_data.copy()
+        ampacity_data["ampacity"] = pd.to_numeric(
+            ampacity_data["ampacity"], errors="coerce"
+        ).fillna(0.0)
+        ampacity_map = (
+            ampacity_data.groupby("line_code", dropna=False)["ampacity"].apply(list).to_dict()
         )
 
-    data_set = {}
-    for line_code in data["line_code"].unique():
-        filt_data = data[data["line_code"] == line_code]
-        line_code_filt = filt_data["line_code"].unique()[0]
-        phase_count_filt = filt_data["phase_count"].unique()[0]
-        ampacities = filt_data["ampacity"].unique()
-        filt_data = filt_data[filt_data["ampacity"] == ampacities[0]]
-        r = pd.pivot_table(
-            filt_data, values="r", index=["row"], columns=["column"], aggfunc="sum"
-        ).values
-        x = pd.pivot_table(
-            filt_data, values="x", index=["row"], columns=["column"], aggfunc="sum"
-        ).values
-        b = pd.pivot_table(
-            filt_data, values="b", index=["row"], columns=["column"], aggfunc="sum"
-        ).values
-        row_indices, col_indices = np.tril_indices(r.shape[0])
-        r_lower = r[row_indices, col_indices].tolist()
-        x_lower = x[row_indices, col_indices].tolist()
-        b_lower = b[row_indices, col_indices].tolist()
+    output_rows = []
+    for line_code, line_data in impedance_data.groupby("line_code", dropna=False, sort=False):
+        phase_count = int(pd.to_numeric(line_data["phase_count"], errors="coerce").iloc[0])
+        ampacities = ampacity_map.get(line_code, [0.0])
+        output_rows.append(
+            {
+                "line_code": line_code,
+                "phase_count": phase_count,
+                "r": _line_code_lower_triangle(line_data, "r", phase_count),
+                "x": _line_code_lower_triangle(line_data, "x", phase_count),
+                "b": _line_code_lower_triangle(line_data, "b", phase_count),
+                "ampacity_normal": min(ampacities),
+                "ampacity_emergency": max(ampacities),
+            }
+        )
 
-        ampacities = [float(ampacity) for ampacity in ampacities]
-        data_set[line_code_filt] = {
-            "line_code": line_code_filt,
-            "phase_count": phase_count_filt,
-            "r": r_lower,
-            "x": x_lower,
-            "b": b_lower,
-            "ampacity_normal": min(ampacities),
-            "ampacity_emergency": max(ampacities),
-        }
-    return pd.DataFrame(data_set).T
+    return pd.DataFrame(output_rows)
 
 
 def query_load_break_switches(graph: Graph) -> pd.DataFrame:
