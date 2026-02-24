@@ -25,6 +25,9 @@ from ditto.readers.cim_iec_61968_13.controllers.regulator_controller import (
 from ditto.readers.cim_iec_61968_13.components.distribution_regulator import (
     DistributionRegulatorMapper,
 )
+from ditto.readers.cim_iec_61968_13.components.distribution_battery import (
+    DistributionBatteryMapper,
+)
 
 from ditto.readers.cim_iec_61968_13.components.matrix_impedance_switch import (
     MatrixImpedanceSwitchMapper,

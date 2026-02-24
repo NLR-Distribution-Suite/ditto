@@ -24,7 +24,7 @@ class DistributionRegulatorMapper(CimMapper):
         )
 
     def map_name(self, row):
-        return row["xfmr"]
+        return self._required_field(row, "xfmr", "DistributionRegulator")
 
     def map_winding_phases(self, row):
         if "wdg_1_phase" in row:
@@ -40,10 +40,27 @@ class DistributionRegulatorMapper(CimMapper):
         return [phase_1, phase_2]
 
     def map_bus(self, row):
-        bus_1_name = row["bus_1"]
-        bus_2_name = row["bus_2"]
-        bus_1 = self.system.get_component(DistributionBus, bus_1_name)
-        bus_2 = self.system.get_component(DistributionBus, bus_2_name)
+        regulator_name = self.map_name(row)
+        bus_1_name = self._required_field(
+            row,
+            "bus_1",
+            f"DistributionRegulator '{regulator_name}'",
+        )
+        bus_2_name = self._required_field(
+            row,
+            "bus_2",
+            f"DistributionRegulator '{regulator_name}'",
+        )
+        bus_1 = self._required_component(
+            DistributionBus,
+            bus_1_name,
+            f"DistributionRegulator '{regulator_name}'",
+        )
+        bus_2 = self._required_component(
+            DistributionBus,
+            bus_2_name,
+            f"DistributionRegulator '{regulator_name}'",
+        )
         return [bus_1, bus_2]
 
     def map_equipment(self, row):
@@ -52,5 +69,10 @@ class DistributionRegulatorMapper(CimMapper):
         return xfmr_equip
 
     def map_controllers(self, row):
-        reg_controllers = self.system.get_component(RegulatorController, row["xfmr"])
+        reg_name = self.map_name(row)
+        reg_controllers = self._required_component(
+            RegulatorController,
+            reg_name,
+            f"DistributionRegulator '{reg_name}'",
+        )
         return [reg_controllers]

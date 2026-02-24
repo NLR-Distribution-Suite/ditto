@@ -19,12 +19,19 @@ class DistributionCapacitorMapper(CimMapper):
         )
 
     def map_name(self, row):
-        return row["capacitor"]
+        return self._required_field(row, "capacitor", "DistributionCapacitor")
 
     def map_bus(self, row):
-        bus_name = row["bus"]
-        bus = self.system.get_component(component_type=DistributionBus, name=bus_name)
-        return bus
+        bus_name = self._required_field(
+            row,
+            "bus",
+            f"DistributionCapacitor '{self.map_name(row)}'",
+        )
+        return self._required_component(
+            DistributionBus,
+            bus_name,
+            f"DistributionCapacitor '{self.map_name(row)}'",
+        )
 
     def map_phases(self, row):
         phases = row["phase"]

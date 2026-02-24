@@ -25,8 +25,6 @@ import ditto.writers.opendss as opendss_mapper
 
 
 class Writer(AbstractWriter):
-    files = []
-
     def _get_dss_string(self, model_map: Any) -> str:
         # Example model_map is instance of DistributionBusMapper
         altdss_class = getattr(altdss_models, model_map.altdss_name)
@@ -46,7 +44,7 @@ class Writer(AbstractWriter):
         files_to_remove = directory.rglob("*.dss")
         for dss_file in files_to_remove:
             logger.debug(f"Deleting existing file {dss_file}")
-            # dss_file.unlink() #TODO: deletion causing tets to fail @tarek
+            dss_file.unlink()
 
     def _get_voltage_bases(self) -> list[float]:
         voltage_bases = []
@@ -75,7 +73,7 @@ class Writer(AbstractWriter):
         seen_profile = set()
 
         output_redirect = Path("")
-        profiles = self._write_profiles(output_path, seen_profile, output_redirect, base_redirect)
+        self._write_profiles(output_path, seen_profile, output_redirect, base_redirect)
         for component_type in component_types:
             # Example component_type is DistributionBus
             components = self.system.get_components(component_type)
@@ -126,7 +124,7 @@ class Writer(AbstractWriter):
                         controller_mapper_name = controller.__class__.__name__ + "Mapper"
                         if not hasattr(opendss_mapper, controller_mapper_name):
                             logger.warning(
-                                f"Equipment Mapper {controller_mapper_name} not found. Skipping"
+                                f"Controller Mapper {controller_mapper_name} not found. Skipping"
                             )
                         else:
                             controller_mapper = getattr(opendss_mapper, controller_mapper_name)
@@ -135,7 +133,7 @@ class Writer(AbstractWriter):
                             controller_dss_string = self._get_dss_string(controller_map)
 
                 output_folder = output_path
-                self._build_directory_structure(
+                output_folder, output_redirect = self._build_directory_structure(
                     separate_substations,
                     separate_feeders,
                     output_path,
@@ -191,8 +189,6 @@ class Writer(AbstractWriter):
                         substations_redirect[model_map.substation].add(
                             Path(equipment_map.opendss_file)
                         )
-                        if profiles:
-                            substations_redirect
 
                 if separate_feeders:
                     combined_feeder_sub = Path(model_map.substation) / Path(model_map.feeder)
@@ -275,6 +271,8 @@ class Writer(AbstractWriter):
             output_folder /= model_map.feeder
             output_redirect /= model_map.feeder
             output_folder.mkdir(exist_ok=True)
+
+        return output_folder, output_redirect
 
     def _write_switch_status(self, file_handler: TextIOWrapper):
         switches: list[MatrixImpedanceSwitch] = list(

@@ -62,4 +62,4 @@ class PhaseVoltageSourceEquipmentMapper(CimMapper):
         return Voltage(float(row["src_voltage"]) / 1.732, "volt")
 
     def map_angle(self, row):
-        return Angle(float(row["src_angle"]) * 180 * pi, "degree")
+        return Angle(float(row["src_angle"]) * 180 / pi, "degree")

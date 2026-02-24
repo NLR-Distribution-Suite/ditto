@@ -1,8 +1,8 @@
 """DiTTo MCP Server — Model Context Protocol interface for the Distribution Transformation Tool.
 
 Exposes DiTTo's reader/writer pipeline, model inspection, and documentation
-as MCP tools, resources, and prompts.  Uses FastMCP with a lifespan-managed
-``AppState`` to hold loaded ``DistributionSystem`` instances across calls.
+as MCP tools, resources, and prompts.  Uses a module-level ``AppState``
+singleton to hold loaded ``DistributionSystem`` instances across calls.
 
 Run directly::
 
@@ -19,27 +19,14 @@ from __future__ import annotations
 import importlib
 import json
 import pkgutil
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
+from mcp.server.fastmcp import FastMCP
+from loguru import logger
 
 from ditto.mcp.docs import list_doc_pages, read_doc_page
 from ditto.mcp.state import AppState
-
-# ---------------------------------------------------------------------------
-# Lifespan
-# ---------------------------------------------------------------------------
-
-
-@asynccontextmanager
-async def app_lifespan(server: FastMCP) -> AsyncIterator[AppState]:
-    """Initialise shared application state that persists across tool calls."""
-    yield AppState()
-
 
 # ---------------------------------------------------------------------------
 # Server instance
@@ -55,7 +42,6 @@ mcp = FastMCP(
         "list readers/writers, load models, inspect components, and "
         "write output files.  Documentation is available as resources."
     ),
-    lifespan=app_lifespan,
 )
 
 # ---------------------------------------------------------------------------
@@ -69,6 +55,7 @@ def _list_subpackages(package_name: str) -> list[str]:
         pkg = importlib.import_module(package_name)
         return [name for _, name, ispkg in pkgutil.iter_modules(pkg.__path__) if ispkg]
     except Exception:
+        logger.warning(f"Failed to import package '{package_name}' for listing subpackages")
         return []
 
 
@@ -106,11 +93,6 @@ def _resolve_component_type(type_name: str):
         f"Unknown component type '{type_name}'. "
         "Check gdm.distribution.components / equipment / controllers."
     )
-
-
-def _get_state(ctx: Context[ServerSession, AppState]) -> AppState:
-    """Extract the ``AppState`` from the request context."""
-    return ctx.request_context.lifespan_context
 
 
 def _safe_json(obj: Any) -> Any:
@@ -424,9 +406,9 @@ def convert_model(
     available_writers = _list_subpackages("ditto.writers")
 
     if reader_type not in available_readers:
-        return f"Unknown reader '{reader_type}'. Available: {available_readers}"
+        raise ValueError(f"Unknown reader '{reader_type}'. Available: {available_readers}")
     if writer_type not in available_writers:
-        return f"Unknown writer '{writer_type}'. Available: {available_writers}"
+        raise ValueError(f"Unknown writer '{writer_type}'. Available: {available_writers}")
 
     ReaderClass = _import_reader(reader_type)
     reader_instance = ReaderClass(Path(input_path).resolve())
@@ -469,7 +451,7 @@ def docs_page(page: str) -> str:
     """Read a specific DiTTo documentation page by slug.
 
     Available slugs: index, install, usage, reference,
-    api/opendss_reader, api/cim_reader, api/opendss_writer.
+    api/opendss_reader, api/cim_reader, api/opendss_writer, api/cim_writer.
     """
     return read_doc_page(page)
 
@@ -518,7 +500,7 @@ def inspect_model(name: str = "default") -> str:
 # Module-level sync state
 # ---------------------------------------------------------------------------
 # FastMCP sync tool functions cannot receive Context, so we use a
-# module-level AppState that's also shared with the lifespan context.
+# module-level AppState singleton to persist loaded systems across calls.
 
 _SYNC_STATE = AppState()
 

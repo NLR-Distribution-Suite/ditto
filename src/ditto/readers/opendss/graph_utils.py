@@ -1,3 +1,5 @@
+from loguru import logger
+
 from gdm.distribution import DistributionSystem
 from gdm.distribution.enums import Phase
 from gdm.distribution.components import (
@@ -34,7 +36,10 @@ def update_split_phase_nodes(graph: Graph, system: DistributionSystem) -> Distri
     """
 
     source_buses = get_source_bus(system)
-    assert len(set(source_buses)) == 1, "Source bus should be singular"
+    if len(set(source_buses)) != 1:
+        raise ValueError(
+            f"Expected exactly one source bus, but found {len(set(source_buses))}: {set(source_buses)}"
+        )
     tree = dfs_multidigraph(graph, source=source_buses[0])
     split_phase_transformers = _get_split_phase_transformers(system)
     for transformer in split_phase_transformers:
@@ -77,13 +82,12 @@ def _get_split_phase_sub_graph(
     )
     hv_xfmr_bus = max(xfmr_buses, key=lambda x: x[1])[0]
     lv_xfmr_bus = min(xfmr_buses, key=lambda x: x[1])[0]
-    xfmr.pprint()
+    logger.debug(f"Processing split-phase transformer: {xfmr.name}")
     xfmr_info = graph[hv_xfmr_bus][lv_xfmr_bus]
 
     for k in xfmr_info:
-        assert (
-            xfmr_info[k]["type"] == DistributionTransformer
-        ), f"Unsupported model type {xfmr_info[k]['type']}"
+        if xfmr_info[k]["type"] != DistributionTransformer:
+            raise TypeError(f"Unsupported model type {xfmr_info[k]['type']}")
         model_type = xfmr_info[k]["type"]
         xfmr_model = system.get_component(model_type, xfmr_info[k]["name"])
 
@@ -144,9 +148,8 @@ def _fix_bus_phases(
 
     for _, _, data in subgraph.edges(data=True):
         model: DistributionBranchBase = system.get_component(data["type"], data["name"])
-        assert issubclass(
-            model.__class__, DistributionBranchBase
-        ), f"Unsupported model type {model.__class__.__name__}"
+        if not issubclass(model.__class__, DistributionBranchBase):
+            raise TypeError(f"Unsupported model type {model.__class__.__name__}")
         model.phases = _mapped_phases(mapped_split_phases, model.phases)
 
 

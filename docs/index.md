@@ -20,7 +20,7 @@ The intermediate GDM representation can also be serialised to JSON for inspectio
 | Format | Reader | Writer |
 |--------|:------:|:------:|
 | OpenDSS | ✅ | ✅ |
-| CIM IEC 61968-13 | ✅ | — |
+| CIM IEC 61968-13 | ✅ | ✅ |
 
 ## Quick Start
 
