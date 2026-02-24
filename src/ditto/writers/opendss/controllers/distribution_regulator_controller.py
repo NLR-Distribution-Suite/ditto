@@ -27,10 +27,10 @@ class RegulatorControllerMapper(OpenDSSMapper):
         self.opendss_dict["VReg"] = self.model.v_setpoint.to("volts").magnitude
 
     def map_min_v_limit(self):
-        self.model.min_v_limit.to("volts").magnitude
+        self.opendss_dict["VMinLimit"] = self.model.min_v_limit.to("volts").magnitude
 
     def map_max_v_limit(self):
-        self.model.max_v_limit.to("volts").magnitude
+        self.opendss_dict["VMaxLimit"] = self.model.max_v_limit.to("volts").magnitude
 
     def map_pt_ratio(self):
         self.opendss_dict["PTRatio"] = self.model.pt_ratio

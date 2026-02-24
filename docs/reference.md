@@ -27,6 +27,7 @@ Writers export a GDM `DistributionSystem` to a target format on disk.
 :hidden: true
 
 api/opendss_writer
+api/cim_writer
 ```
 
 ## MCP Server

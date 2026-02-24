@@ -18,9 +18,9 @@ class DistributionBusMapper(OpenDSSMapper):
 
     def map_coordinate(self):
         if hasattr(self.model.coordinate, "x"):
-            self.opendss_dict["X"] = self.model.coordinate.y
+            self.opendss_dict["X"] = self.model.coordinate.x
         if hasattr(self.model.coordinate, "y"):
-            self.opendss_dict["Y"] = self.model.coordinate.x
+            self.opendss_dict["Y"] = self.model.coordinate.y
 
     def map_rated_voltage(self):
         kv_rated_voltage = self.model.rated_voltage.to("kV")

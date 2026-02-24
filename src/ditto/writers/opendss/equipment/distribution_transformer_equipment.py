@@ -48,15 +48,19 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
             # resistance
             pctRs.append(winding.resistance)
             # rated_power
-            kVAs.append(winding.rated_power.to("kva").magnitude)
+            kVAs.append(winding.rated_power.to("kilova").magnitude)
             # connection_type
             conns.append(self.connection_map[winding.connection_type])
             # TODO: num_phases and is_grounded aren't included
-            if self.model.is_center_tapped and i == len(self.model.windings):
+            if self.model.is_center_tapped and i == len(self.model.windings) - 1:
                 kvs.append(nom_voltage)
                 pctRs.append(winding.resistance)
-                kVAs.append(winding.rated_power.to("kVa").magnitude)
+                kVAs.append(winding.rated_power.to("kilova").magnitude)
                 conns.append(self.connection_map[winding.connection_type])
+                taps.append(tap_pu[0])
+                min_tap.append(winding.min_tap_pu)
+                max_tap.append(winding.max_tap_pu)
+                num_taps.append(winding.total_taps)
         self.opendss_dict["kV"] = kvs
         self.opendss_dict["pctR"] = pctRs
         self.opendss_dict["kVA"] = kVAs
@@ -65,11 +69,9 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
             self.opendss_dict[x] = x_value
         self.opendss_dict["Phases"] = num_phases
         self.opendss_dict["Tap"] = taps
-        self.opendss_dict["Tap"] = taps
         self.opendss_dict["MinTap"] = min_tap
         self.opendss_dict["MaxTap"] = max_tap
         self.opendss_dict["NumTaps"] = num_taps
-        pass
 
     def map_coupling_sequences(self):
         # Used to know the reactance couplings

@@ -1,19 +1,73 @@
-from functools import reduce
+from functools import lru_cache, reduce
 
 from rdflib.query import Result
 from loguru import logger
 from rdflib import Graph
+from rdflib.term import BNode, Literal, URIRef
 import pandas as pd
 
 import numpy as np
 
 
+def _namespace_key(graph: Graph) -> tuple[tuple[str, str], ...]:
+    return tuple((str(prefix_name), str(url)) for prefix_name, url in graph.namespaces())
+
+
+@lru_cache(maxsize=32)
+def _prefix_block(namespace_key: tuple[tuple[str, str], ...]) -> str:
+    return "".join(f"PREFIX {prefix_name}: <{url}>\n" for prefix_name, url in namespace_key)
+
+
+def _shorten_uri(value: str) -> str:
+    token = value.rstrip("/")
+    for delimiter in ("#", "/", "."):
+        if delimiter in token:
+            token = token.rsplit(delimiter, 1)[-1]
+    return token
+
+
+def _normalize_rdf_value(value):
+    if value is None:
+        return None
+
+    if isinstance(value, URIRef):
+        return _shorten_uri(str(value))
+    if isinstance(value, Literal):
+        return value.value
+    if isinstance(value, BNode):
+        return str(value)
+
+    raw_value = getattr(value, "value", value)
+    if isinstance(raw_value, str):
+        if "," in raw_value and "http" in raw_value:
+            parts = [part.strip() for part in raw_value.split(",")]
+            return ",".join(_shorten_uri(part) if "http" in part else part for part in parts)
+        if raw_value.startswith("http://") or raw_value.startswith("https://"):
+            return _shorten_uri(raw_value)
+
+    return raw_value
+
+
+def _query_dataframe(graph: Graph, query: str, columns: list[str]) -> pd.DataFrame:
+    return query_to_df(graph.query(add_prefixes(query, graph)), columns)
+
+
+def _sorted_phase_string(phase_values: list) -> str | None:
+    phase_order = ["A", "B", "C", "N"]
+    phase_set = set()
+
+    for raw_phase in phase_values:
+        if raw_phase is None:
+            continue
+        phase_text = str(raw_phase).replace(",", "").upper()
+        phase_set.update({phase for phase in phase_text if phase in phase_order})
+
+    ordered_phases = [phase for phase in phase_order if phase in phase_set]
+    return ",".join(ordered_phases) if ordered_phases else None
+
+
 def add_prefixes(query: str, graph: Graph) -> str:
-    prefixes = ""
-    for prefix_name, url in graph.namespaces():
-        prefix = f"PREFIX {prefix_name}: <{str(url)}>\n"
-        prefixes += prefix
-    return prefixes + query
+    return _prefix_block(_namespace_key(graph)) + query
 
 
 def query_to_df(results: Result, columns: list[str]):
@@ -21,28 +75,16 @@ def query_to_df(results: Result, columns: list[str]):
     for row in results:
         row_data = {}
         for column, value in zip(columns, row):
-            try:
-                new_value = value.value
-            except Exception as _:
-                new_value = value
-
-            if isinstance(new_value, str) and "http" in new_value:
-                if "," in new_value:
-                    new_value = new_value.split(",")
-                    if "." in new_value[0]:
-                        new_value = [v.split(".")[-1] for v in new_value]
-                elif "." in new_value:
-                    new_value = new_value.split(".")[-1]
-                else:
-                    new_value = new_value
-                new_value = ",".join(new_value) if isinstance(new_value, list) else new_value
-
-            row_data[column] = new_value
+            row_data[column] = _normalize_rdf_value(value)
         data.append(row_data)
-    data = pd.DataFrame(data)
+    data = pd.DataFrame(data, columns=columns)
     data = data.drop_duplicates()
 
     return data
+
+
+def _empty_df(columns: list[str]) -> pd.DataFrame:
+    return pd.DataFrame(columns=columns)
 
 
 def query_line_codes(graph: Graph) -> pd.DataFrame:
@@ -70,7 +112,11 @@ def query_line_codes(graph: Graph) -> pd.DataFrame:
         ?curr_lim_set cim:CurrentLimit.value ?ampacity .
     }
     """
-    data = query_to_df(graph.query(add_prefixes(sparql_query_ac_line_segment, graph)), columns)
+    data = _query_dataframe(graph, sparql_query_ac_line_segment, columns)
+    if data.empty:
+        return _empty_df(
+            ["line_code", "phase_count", "r", "x", "b", "ampacity_normal", "ampacity_emergency"]
+        )
 
     data_set = {}
     for line_code in data["line_code"].unique():
@@ -134,15 +180,44 @@ def query_load_break_switches(graph: Graph) -> pd.DataFrame:
 
     }
     """
-    data = query_to_df(graph.query(add_prefixes(query, graph)), columns)
+    data = _query_dataframe(graph, query, columns)
+    if data.empty or "switch_name" not in data.columns:
+        return _empty_df(
+            [
+                "switch_name",
+                "capacity",
+                "ratedCurrent",
+                "normally_open",
+                "is_open",
+                "voltage",
+                "bus_1",
+                "bus_2",
+            ]
+        )
     data_set = []
     for line_name in data["switch_name"].unique():
         filt_data = data[data["switch_name"] == line_name]
         buses = filt_data["bus"].unique()
-        reduced_data = filt_data.drop_duplicates()
+        if len(buses) < 2:
+            logger.warning(f"Switch '{line_name}' has fewer than 2 buses ({len(buses)}), skipping")
+            continue
+        reduced_data = filt_data.drop_duplicates().copy()
         reduced_data["bus_1"] = buses[0]
         reduced_data["bus_2"] = buses[1]
         data_set.append(reduced_data)
+    if not data_set:
+        return _empty_df(
+            [
+                "switch_name",
+                "capacity",
+                "ratedCurrent",
+                "normally_open",
+                "is_open",
+                "voltage",
+                "bus_1",
+                "bus_2",
+            ]
+        )
     data = pd.concat(data_set)
     data.drop("bus", axis=1, inplace=True)
     data = data.drop_duplicates()
@@ -172,12 +247,29 @@ def query_line_segments(graph: Graph) -> pd.DataFrame:
 
     }
     """
-    data = query_to_df(graph.query(add_prefixes(query, graph)), columns)
+    data = _query_dataframe(graph, query, columns)
+    if data.empty or "line" not in data.columns:
+        return _empty_df(
+            [
+                "line",
+                "voltage",
+                "length",
+                "phase_count",
+                "line_code",
+                "bus_1",
+                "phases_1",
+                "bus_2",
+                "phases_2",
+            ]
+        )
 
     data_set = []
     for line_name in data["line"].unique():
         filt_data = data[data["line"] == line_name]
         buses = filt_data["bus"].unique()
+        if len(buses) < 2:
+            logger.warning(f"Line '{line_name}' has fewer than 2 buses ({len(buses)}), skipping")
+            continue
         bus_phases = {}
         for bus in buses:
             filt_data_bus = filt_data[filt_data["bus"] == bus]
@@ -186,10 +278,25 @@ def query_line_segments(graph: Graph) -> pd.DataFrame:
         reduced_data = filt_data[["line", "voltage", "length", "phase_count", "line_code"]]
         reduced_data = reduced_data.drop_duplicates()
         reduced_data["bus_1"] = buses[0]
-        reduced_data["phases_1"] = ",".join(bus_phases[buses[0]])
+        reduced_data["phases_1"] = _sorted_phase_string(bus_phases[buses[0]])
         reduced_data["bus_2"] = buses[1]
-        reduced_data["phases_2"] = ",".join(bus_phases[buses[1]])
+        reduced_data["phases_2"] = _sorted_phase_string(bus_phases[buses[1]])
         data_set.append(reduced_data)
+
+    if not data_set:
+        return _empty_df(
+            [
+                "line",
+                "voltage",
+                "length",
+                "phase_count",
+                "line_code",
+                "bus_1",
+                "phases_1",
+                "bus_2",
+                "phases_2",
+            ]
+        )
 
     data_set = pd.concat(data_set)
     return data_set
@@ -208,7 +315,7 @@ def query_distribution_buses(graph: Graph) -> pd.DataFrame:
         ?location cim:IdentifiedObject.mRID ?location_id .
     }
     """
-    locations = query_to_df(graph.query(add_prefixes(query_locations, graph)), locations_columns)
+    locations = _query_dataframe(graph, query_locations, locations_columns)
     location_dict = {}
     for location in locations["location_id"].unique():
         loc = locations[locations["location_id"] == location]
@@ -242,6 +349,9 @@ def query_distribution_buses(graph: Graph) -> pd.DataFrame:
             ?xfmr cim:IdentifiedObject.name ?TransformerEnd.
             ?xfmr cim:TransformerEnd.BaseVoltage ?xfmr_base_voltage .
             ?xfmr_base_voltage cim:BaseVoltage.nominalVoltage ?xfmr_voltage .
+        } .
+
+        OPTIONAL {
             ?xfmr_tank cim:TransformerTank.PowerTransformer ?equip .
             ?xfmr_tank cim:PowerSystemResource.Location ?xfmr_location .
             ?xfmr_location cim:IdentifiedObject.mRID ?xfmr_loc_id.
@@ -258,12 +368,15 @@ def query_distribution_buses(graph: Graph) -> pd.DataFrame:
             ?line_location cim:IdentifiedObject.mRID ?line_loc_id .
             ?equip cim:ConductingEquipment.BaseVoltage ?line_base_voltage .
             ?line_base_voltage cim:BaseVoltage.nominalVoltage ?line_voltage .
-        }.
+            FILTER NOT EXISTS { ?_te cim:TransformerEnd.Terminal ?term }
+        } .
 
     }
     # GROUP BY ?equip_name ?TransformerEnd
     """
-    data = query_to_df(graph.query(add_prefixes(query, graph)), columns)
+    data = _query_dataframe(graph, query, columns)
+    if data.empty:
+        return _empty_df(["x", "y", "rated_voltage", "bus"])
     node_voltage_df = _get_bus_base_voltages(data)
     node_coordinates = _get_bus_coordinates(data, location_dict)
     final_data = pd.concat([node_coordinates, node_voltage_df], axis=1)
@@ -272,6 +385,9 @@ def query_distribution_buses(graph: Graph) -> pd.DataFrame:
 
 
 def _get_bus_coordinates(loc_df: pd.DataFrame, location_dict: dict) -> pd.DataFrame:
+    if loc_df.empty:
+        return _empty_df(["x", "y"])
+
     filt_data = loc_df[["node", "reg_loc_id", "xfmr_loc_id", "line_loc_id"]]
     df_grouped = filt_data.groupby("node", as_index=False).agg(
         {
@@ -292,7 +408,11 @@ def _get_bus_coordinates(loc_df: pd.DataFrame, location_dict: dict) -> pd.DataFr
         coordinates = []
 
         for cood_id in ids:
-            coordinates.append(set(location_dict[cood_id]))
+            location_coordinates = location_dict.get(cood_id)
+            if location_coordinates:
+                coordinates.append(set(location_coordinates))
+        if not coordinates:
+            continue
         result = reduce(lambda x, y: x & y, coordinates)
         if len(result) == 1:
             coordinate_map[node] = list(result)[0]
@@ -301,6 +421,7 @@ def _get_bus_coordinates(loc_df: pd.DataFrame, location_dict: dict) -> pd.DataFr
 
     coordinate_map_fix = {}
     for node_unknown, coordinates in coordinates_to_be_corrected.items():
+        coordinates = set(coordinates)
         for _, coordinate in coordinate_map.items():
             if coordinate in coordinates:
                 coordinates.remove(coordinate)
@@ -320,12 +441,14 @@ def _get_bus_coordinates(loc_df: pd.DataFrame, location_dict: dict) -> pd.DataFr
 
 
 def _get_bus_base_voltages(data: pd.DataFrame) -> pd.DataFrame:
+    if data.empty:
+        return _empty_df(["rated_voltage"])
+
     filt_data = data[["node", "xfmr_voltage", "line_voltage"]]
-    filt_data_arr = filt_data.values
-    filt_data_arr = np.where(filt_data_arr is None, 0.0, filt_data_arr)
-    filt_data = pd.DataFrame(filt_data_arr, columns=filt_data.columns)
-    dtype_mapping = {"node": str, "xfmr_voltage": float, "line_voltage": float}
-    filt_data = filt_data.astype(dtype_mapping)
+    filt_data = filt_data.copy()
+    filt_data["node"] = filt_data["node"].astype(str)
+    for numeric_col in ["xfmr_voltage", "line_voltage"]:
+        filt_data[numeric_col] = pd.to_numeric(filt_data[numeric_col], errors="coerce").fillna(0.0)
     filt_data["rated_voltage"] = filt_data[["xfmr_voltage", "line_voltage"]].max(axis=1)
     filt_data = filt_data[["node", "rated_voltage"]]
     filt_data.drop_duplicates(inplace=True)
@@ -414,7 +537,7 @@ def query_distribution_regulators(graph: Graph) -> pd.DataFrame:
     }
 
     """
-    return query_to_df(graph.query(add_prefixes(query, graph)), columns)
+    return _query_dataframe(graph, query, columns)
 
 
 def query_power_transformers(graph: Graph) -> pd.DataFrame:
@@ -446,12 +569,17 @@ def query_power_transformers(graph: Graph) -> pd.DataFrame:
         ?xfmr_end cim:PowerTransformerEnd.phaseAngleClock ?angle .
         ?xfmr_end cim:TransformerEnd.endNumber ?winding .
         ?xfmr_end cim:IdentifiedObject.name ?xfmr_end_name .
+        ?xfmr_end cim:TransformerEnd.Terminal ?term .
         ?term cim:Terminal.ConductingEquipment ?xfmr .
         ?term cim:Terminal.ConnectivityNode ?node .
         ?node cim:IdentifiedObject.name ?node_name .
+
+        FILTER NOT EXISTS {
+            ?_tank cim:TransformerTank.PowerTransformer ?xfmr .
+        }
     }
     """
-    return query_to_df(graph.query(add_prefixes(query, graph)), columns)
+    return _query_dataframe(graph, query, columns)
 
 
 def query_transformer_windings(graph: Graph) -> pd.DataFrame:
@@ -475,7 +603,7 @@ def query_transformer_windings(graph: Graph) -> pd.DataFrame:
         ?xfmr_end_2 cim:IdentifiedObject.name ?xfmr_end_name_2 .
     }
     """
-    return query_to_df(graph.query(add_prefixes(query, graph)), columns)
+    return _query_dataframe(graph, query, columns)
 
 
 def query_capacitors(graph: Graph) -> pd.DataFrame:
@@ -519,7 +647,7 @@ def query_capacitors(graph: Graph) -> pd.DataFrame:
     }
 
     """
-    return query_to_df(graph.query(add_prefixes(query, graph)), columns)
+    return _query_dataframe(graph, query, columns)
 
 
 def query_source(graph: Graph) -> pd.DataFrame:
@@ -557,7 +685,7 @@ def query_source(graph: Graph) -> pd.DataFrame:
     }
 
     """
-    return query_to_df(graph.query(add_prefixes(query, graph)), columns)
+    return _query_dataframe(graph, query, columns)
 
 
 def query_loads(graph: Graph) -> pd.DataFrame:
@@ -613,7 +741,67 @@ def query_loads(graph: Graph) -> pd.DataFrame:
         ?zip_params cim:LoadResponseCharacteristic.qVoltageExponent ?q_exp .
     }
     """
-    return query_to_df(graph.query(add_prefixes(query, graph)), columns)
+    return _query_dataframe(graph, query, columns)
+
+
+def query_batteries(graph: Graph) -> pd.DataFrame:
+    columns = [
+        "battery",
+        "rated_energy",
+        "stored_energy",
+        "max_p",
+        "p",
+        "q",
+        "rated_s",
+        "rated_voltage",
+        "phase",
+        "bus",
+    ]
+
+    query = """
+    SELECT ?battery_name ?rated_energy ?stored_energy ?max_p ?p ?q ?rated_s ?rated_voltage ?phase ?node_name
+    WHERE {
+        ?unit rdf:type cim:BatteryUnit .
+        ?unit cim:IdentifiedObject.name ?battery_name .
+        ?unit cim:BatteryUnit.ratedE ?rated_energy .
+        ?unit cim:BatteryUnit.storedE ?stored_energy .
+
+        ?pec rdf:type cim:PowerElectronicsConnection .
+        ?pec cim:PowerElectronicsConnection.PowerElectronicsUnit ?unit .
+        ?pec cim:PowerElectronicsConnection.maxP ?max_p .
+        ?pec cim:PowerElectronicsConnection.p ?p .
+        ?pec cim:PowerElectronicsConnection.q ?q .
+        OPTIONAL { ?pec cim:PowerElectronicsConnection.ratedS ?rated_s . } .
+
+        ?pec cim:ConductingEquipment.BaseVoltage ?base_voltage .
+        ?base_voltage cim:BaseVoltage.nominalVoltage ?rated_voltage .
+
+        ?term rdf:type cim:Terminal .
+        ?term cim:Terminal.ConductingEquipment ?pec .
+        ?term cim:Terminal.ConnectivityNode ?node .
+        ?node cim:IdentifiedObject.name ?node_name .
+
+        OPTIONAL {
+            ?pec_phase rdf:type cim:PowerElectronicsConnectionPhase .
+            ?pec_phase cim:PowerElectronicsConnectionPhase.PowerElectronicsConnection ?pec .
+            ?pec_phase cim:PowerElectronicsConnectionPhase.phase ?phase .
+        } .
+    }
+    """
+    data = _query_dataframe(graph, query, columns)
+    if data.empty or "battery" not in data.columns:
+        return _empty_df(columns)
+
+    data_set = []
+    for battery_name in data["battery"].unique():
+        battery_rows = data[data["battery"] == battery_name].copy()
+        first_row = battery_rows.iloc[0].copy()
+
+        first_row["phase"] = _sorted_phase_string(battery_rows["phase"].dropna().tolist())
+
+        data_set.append(first_row)
+
+    return pd.DataFrame(data_set)
 
 
 def query_regulator_controllers(graph: Graph) -> pd.DataFrame:
@@ -671,4 +859,4 @@ def query_regulator_controllers(graph: Graph) -> pd.DataFrame:
         ?controller cim:TapChangerControl.minLimitVoltage ?min_voltage .
     }
     """
-    return query_to_df(graph.query(add_prefixes(query, graph)), columns)
+    return _query_dataframe(graph, query, columns)

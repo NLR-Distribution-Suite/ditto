@@ -19,6 +19,7 @@ def test_list_writers():
     assert result.exit_code == 0
     output = result.stdout
     assert "opendss" in output
+    assert "cim_iec_61968_13" in output
 
 
 def test_convert_missing_args():

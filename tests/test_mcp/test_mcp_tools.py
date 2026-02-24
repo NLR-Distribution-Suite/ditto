@@ -15,6 +15,7 @@ from ditto.mcp.server import (
     list_readers,
     list_writers,
     load_gdm_json,
+    read_cim_model,
     read_opendss_model,
     write_opendss,
 )
@@ -44,6 +45,7 @@ def test_list_writers():
     writers = list_writers()
     assert isinstance(writers, list)
     assert "opendss" in writers
+    assert "cim_iec_61968_13" in writers
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +118,44 @@ class TestOpenDSSModel:
 
 
 # ---------------------------------------------------------------------------
+# CIM reader
+# ---------------------------------------------------------------------------
+
+
+class TestCIMModel:
+    """Tests that load the IEEE 13-node CIM model."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self):
+        """Load the model once and clean up after."""
+        _SYNC_STATE.systems.clear()
+        read_cim_model(str(_CIM_XML), name="cim13")
+        yield
+        _SYNC_STATE.systems.clear()
+
+    def test_read_cim_model(self):
+        assert "cim13" in _SYNC_STATE.systems
+
+    def test_get_system_summary(self):
+        summary = get_system_summary("cim13")
+        assert summary["name"] == "cim13"
+        assert isinstance(summary["component_types"], dict)
+        assert summary["total_components"] > 0
+
+    def test_get_components_buses(self):
+        components = get_components("DistributionBus", name="cim13")
+        assert isinstance(components, list)
+        assert len(components) > 0
+        assert "name" in components[0]
+
+    def test_export_gdm_json(self, tmp_path):
+        json_path = tmp_path / "cim_model.json"
+        result = export_gdm_json(name="cim13", output_path=str(json_path))
+        assert "exported" in result.lower() or "JSON" in result
+        assert json_path.exists()
+
+
+# ---------------------------------------------------------------------------
 # Conversion tool
 # ---------------------------------------------------------------------------
 
@@ -139,22 +179,22 @@ class TestConvertModel:
         assert out.exists()
 
     def test_convert_unknown_reader(self, tmp_path):
-        result = convert_model(
-            reader_type="nonexistent_format",
-            writer_type="opendss",
-            input_path=str(tmp_path / "fake"),
-            output_path=str(tmp_path),
-        )
-        assert "Unknown reader" in result
+        with pytest.raises(ValueError, match="Unknown reader"):
+            convert_model(
+                reader_type="nonexistent_format",
+                writer_type="opendss",
+                input_path=str(tmp_path / "fake"),
+                output_path=str(tmp_path),
+            )
 
     def test_convert_unknown_writer(self, tmp_path):
-        result = convert_model(
-            reader_type="opendss",
-            writer_type="nonexistent_format",
-            input_path=str(tmp_path / "fake"),
-            output_path=str(tmp_path),
-        )
-        assert "Unknown writer" in result
+        with pytest.raises(ValueError, match="Unknown writer"):
+            convert_model(
+                reader_type="opendss",
+                writer_type="nonexistent_format",
+                input_path=str(tmp_path / "fake"),
+                output_path=str(tmp_path),
+            )
 
 
 # ---------------------------------------------------------------------------
