@@ -1,5 +1,5 @@
 from pathlib import Path
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 import pytest
 from gdm.distribution.components import DistributionBattery, DistributionBus
