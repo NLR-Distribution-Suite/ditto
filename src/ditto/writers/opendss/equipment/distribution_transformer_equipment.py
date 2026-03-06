@@ -4,6 +4,7 @@ from infrasys import Component
 
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
+from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class DistributionTransformerEquipmentMapper(OpenDSSMapper):
@@ -46,11 +47,15 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
             nom_voltage = winding.rated_voltage.to("kV").magnitude
             voltage_type = winding.voltage_type
             connection_type = winding.connection_type
-            nom_voltage = nom_voltage if voltage_type == "line-to-ground" else nom_voltage / 1.732
-            kvs.append(
+            nom_voltage_LN = (
                 nom_voltage
+                if voltage_type == "line-to-ground"
+                else nom_voltage / LL_LN_CONVERSION_FACTOR
+            )
+            kvs.append(
+                nom_voltage_LN
                 if num_phases == 1 and connection_type != "DELTA"
-                else nom_voltage * 1.732
+                else nom_voltage_LN * LL_LN_CONVERSION_FACTOR
             )
             # resistance
             pctRs.append(winding.resistance)

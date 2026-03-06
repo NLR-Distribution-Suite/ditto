@@ -4,6 +4,7 @@ from gdm.distribution import DistributionSystem
 
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
+from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class DistributionSolarMapper(OpenDSSMapper):
@@ -15,7 +16,7 @@ class DistributionSolarMapper(OpenDSSMapper):
     opendss_file = OpenDSSFileTypes.SOLAR_FILE.value
 
     def map_in_service(self):
-        self.opendss_dict["enabled"] = self.model.in_service
+        self.opendss_dict["Enabled"] = self.model.in_service
 
     def map_name(self):
         self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
@@ -31,7 +32,9 @@ class DistributionSolarMapper(OpenDSSMapper):
             self.opendss_dict["Bus1"] += self.phase_map[phase]
         # TODO: Should we include the phases its connected to here?
         nom_voltage = self.model.bus.rated_voltage.to("kV").magnitude
-        self.opendss_dict["kV"] = nom_voltage if num_phases == 1 else nom_voltage * 1.732
+        self.opendss_dict["kV"] = (
+            nom_voltage if num_phases == 1 else nom_voltage * LL_LN_CONVERSION_FACTOR
+        )
 
     def map_phases(self):
         self.opendss_dict["Phases"] = len(self.model.phases)

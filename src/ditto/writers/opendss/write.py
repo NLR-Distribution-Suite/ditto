@@ -22,6 +22,7 @@ from loguru import logger
 from ditto.writers.abstract_writer import AbstractWriter
 from ditto.enumerations import OpenDSSFileTypes
 import ditto.writers.opendss as opendss_mapper
+from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class Writer(AbstractWriter):
@@ -55,7 +56,7 @@ class Writer(AbstractWriter):
             voltage_bases.append(
                 bus.rated_voltage.to("kilovolt").magnitude
                 if bus.voltage_type == "line-to-line"
-                else bus.rated_voltage.to("kilovolt").magnitude * 1.732
+                else bus.rated_voltage.to("kilovolt").magnitude * LL_LN_CONVERSION_FACTOR
             )
         return list(set(voltage_bases))
 

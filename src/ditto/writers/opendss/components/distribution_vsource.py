@@ -5,6 +5,7 @@ from infrasys import Component
 
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
+from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class DistributionVoltageSourceMapper(OpenDSSMapper):
@@ -16,7 +17,7 @@ class DistributionVoltageSourceMapper(OpenDSSMapper):
     opendss_file = OpenDSSFileTypes.MASTER_FILE.value
 
     def map_in_service(self):
-        self.opendss_dict["enabled"] = self.model.in_service
+        self.opendss_dict["Enabled"] = self.model.in_service
 
     def map_name(self):
         self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
@@ -64,10 +65,10 @@ class DistributionVoltageSourceMapper(OpenDSSMapper):
             if num_phases == 1:
                 v_mag = voltage.magnitude
             else:
-                v_mag = voltage.magnitude * 1.732
+                v_mag = voltage.magnitude * LL_LN_CONVERSION_FACTOR
         else:
             if num_phases == 1:
-                v_mag = voltage.magnitude / 1.732
+                v_mag = voltage.magnitude / LL_LN_CONVERSION_FACTOR
             else:
                 v_mag = voltage.magnitude
 
@@ -75,10 +76,10 @@ class DistributionVoltageSourceMapper(OpenDSSMapper):
             if num_phases == 1:
                 v_nom = rated_voltage.magnitude
             else:
-                v_nom = rated_voltage.magnitude * 1.732
+                v_nom = rated_voltage.magnitude * LL_LN_CONVERSION_FACTOR
         else:
             if num_phases == 1:
-                v_nom = rated_voltage.magnitude / 1.732
+                v_nom = rated_voltage.magnitude / LL_LN_CONVERSION_FACTOR
             else:
                 v_nom = rated_voltage.magnitude
 
