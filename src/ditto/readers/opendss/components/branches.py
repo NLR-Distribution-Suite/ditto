@@ -240,6 +240,13 @@ def get_matrix_branch_equipments() -> (
     return matrix_branch_equipments_catalog, thermal_limit_catalog
 
 
+def _add_neutral_phase_to_buses(system, bus1, bus2):
+    for bus in [bus1, bus2]:
+        bus_obj = system.get_component(DistributionBus, bus)
+        if Phase.N not in bus_obj.phases:
+            bus_obj.phases.append(Phase.N)
+
+
 def get_branches(
     system: System,
     mapping: dict[str, str],
@@ -283,9 +290,7 @@ def get_branches(
                 nodes.append("4")
 
             if "4" in nodes:
-                for bus in [bus1, bus2]:
-                    bus_obj = system.get_component(DistributionBus, bus)
-                    bus_obj.phases.append(Phase.N)
+                _add_neutral_phase_to_buses(system, bus1, bus2)
 
             geometry_branch = GeometryBranch.model_construct(
                 name=odd.Lines.Name().lower(),
