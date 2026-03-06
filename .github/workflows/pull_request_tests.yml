@@ -31,8 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     name: "ruff"
     steps:
-      - uses: davidslusser/actions_python_ruff@v1.0.1
+      - uses: davidslusser/actions_python_ruff@v1.0.3
         with:
-          src: "check src"
+          command: "ruff check src tests"
           pip_install_command: "pip install -e .[dev,mcp]"
           python_version: "3.11"
