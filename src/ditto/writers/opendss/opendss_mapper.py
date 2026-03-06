@@ -92,7 +92,7 @@ class OpenDSSMapper(ABC):
     def get_opendss_safe_name(self, name: str) -> str:
         """Fix the name to be compatible with OpenDSS by replacing spaces and periods with underscores."""
 
-        not_safe_characters = [" ", ".", "=", "!", "[", "]", "(", ")", "{", "}", "@", "%", "~"]
+        not_safe_characters = [" ", ".", "=", "!", "[", "]", "{", "}", "@", "%", "~"]
 
         for char in not_safe_characters:
             if char in name:
