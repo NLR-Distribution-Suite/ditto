@@ -13,7 +13,13 @@ class MatrixImpedanceSwitchMapper(CimMapper):
         super().__init__(system)
 
     def parse(self, row):
-        self.bus_2 = self.system.get_component(DistributionBus, row["bus_2"])
+        switch_name = self.map_name(row)
+        bus_2_name = self._required_field(row, "bus_2", f"MatrixImpedanceSwitch '{switch_name}'")
+        self.bus_2 = self._required_component(
+            DistributionBus,
+            bus_2_name,
+            f"MatrixImpedanceSwitch '{switch_name}'",
+        )
         self.n_phases = len(self.bus_2.phases)
 
         return MatrixImpedanceSwitch(
@@ -27,16 +33,33 @@ class MatrixImpedanceSwitchMapper(CimMapper):
 
     def map_is_closed(self, row):
         state = True if row["is_open"] == "false" else False
-        return [state] * 3
+        return [state] * max(1, len(self.bus_2.phases))
 
     def map_name(self, row):
-        return row["switch_name"]
+        return self._required_field(row, "switch_name", "MatrixImpedanceSwitch")
 
     def map_buses(self, row):
-        bus_1_name = row["bus_1"]
-        bus_1 = self.system.get_component(DistributionBus, bus_1_name)
-        bus_2_name = row["bus_2"]
-        bus_2 = self.system.get_component(DistributionBus, bus_2_name)
+        switch_name = self.map_name(row)
+        bus_1_name = self._required_field(
+            row,
+            "bus_1",
+            f"MatrixImpedanceSwitch '{switch_name}'",
+        )
+        bus_2_name = self._required_field(
+            row,
+            "bus_2",
+            f"MatrixImpedanceSwitch '{switch_name}'",
+        )
+        bus_1 = self._required_component(
+            DistributionBus,
+            bus_1_name,
+            f"MatrixImpedanceSwitch '{switch_name}'",
+        )
+        bus_2 = self._required_component(
+            DistributionBus,
+            bus_2_name,
+            f"MatrixImpedanceSwitch '{switch_name}'",
+        )
         return [bus_1, bus_2]
 
     def map_length(self, row):
@@ -58,6 +81,7 @@ class MatrixImpedanceSwitchMapper(CimMapper):
             equipment = MatrixImpedanceSwitchEquipment(**model_dict)
             return equipment
         else:
-            raise Exception(
-                "No Matrix Impedance Branch Equipment found with {} phases".format(self.n_phases)
+            raise ValueError(
+                "No MatrixImpedanceBranchEquipment found for switch "
+                f"'{row['switch_name']}' with {self.n_phases} phases"
             )

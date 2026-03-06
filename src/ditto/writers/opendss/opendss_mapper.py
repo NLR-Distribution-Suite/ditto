@@ -19,30 +19,30 @@ class OpenDSSMapper(ABC):
     }
     connection_map = {"STAR": "wye", "DELTA": "delta", "OPEN_DELTA": "delta", "OPEN_STAR": "wye"}
 
+    @property
+    @abstractmethod
+    def opendss_file(self):
+        """Return the OpenDSS file."""
+        ...
+
+    @property
+    @abstractmethod
+    def altdss_name(self):
+        """Return the name of the AltDSS class which defines the object."""
+        ...
+
+    @property
+    @abstractmethod
+    def altdss_composition_name(self):
+        """Return the name of the AltDSS class which constructs the object through composition"""
+        ...
+
     def __init__(self, model: Component, system: DistributionSystem):
         self.model = model
         self.system = system
         self.opendss_dict = {}
         self.substation = ""
         self.feeder = ""
-
-        @property
-        @abstractmethod
-        def opendss_file():
-            """Return the OpenDSS file."""
-            pass
-
-        @property
-        @abstractmethod
-        def altdss_name():
-            """Return the name of the AltDSS class which defines the object."""
-            pass
-
-        @property
-        @abstractmethod
-        def altdss_composition_name():
-            """Return the name of the AltDSS class which constructs the object through composition"""
-            pass
 
     def map_common(self):
         return
@@ -62,8 +62,9 @@ class OpenDSSMapper(ABC):
             self.feeder = self.model.feeder.name
 
     def populate_opendss_dictionary(self):
-        # Should not be populating an existing dictionary. Assert error if not empty
-        assert len(self.opendss_dict) == 0
+        # Should not be populating an existing dictionary.
+        if len(self.opendss_dict) != 0:
+            raise ValueError("opendss_dict must be empty before populating")
         self.map_common()
         for field in type(self.model).model_fields:
             mapping_function = getattr(self, "map_" + field)

@@ -29,6 +29,8 @@ _DOC_PAGES: dict[str, str] = {
     "api/opendss_reader": "api/opendss_reader.md",
     "api/cim_reader": "api/cim_reader.md",
     "api/opendss_writer": "api/opendss_writer.md",
+    "api/cim_writer": "api/cim_writer.md",
+    "api/mcp_server": "api/mcp_server.md",
 }
 
 

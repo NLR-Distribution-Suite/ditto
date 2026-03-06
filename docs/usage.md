@@ -58,6 +58,30 @@ writer = Writer(system)
 writer.write(output_path=Path("output_model"))
 ```
 
+### Writing CIM IEC 61968-13 Output
+
+```python
+from pathlib import Path
+from ditto.writers.cim_iec_61968_13.write import Writer as CimWriter
+
+writer = CimWriter(system)
+
+# Single RDF/XML file: output/model.xml
+writer.write(output_path=Path("cim_output"), output_mode="single")
+
+# Package output with per-substation, per-feeder, per-equipment-type files
+writer.write(
+  output_path=Path("cim_package"),
+  output_mode="package",
+  separate_substations=True,
+  separate_feeders=True,
+  separate_equipment_types=True,
+)
+```
+
+Current CIM writer coverage includes buses, loads, sources, lines, transformers,
+regulators, capacitors, switches, fuses, solar, and battery components.
+
 ## End-to-End Conversion
 
 Combining reader and writer for a full format conversion:

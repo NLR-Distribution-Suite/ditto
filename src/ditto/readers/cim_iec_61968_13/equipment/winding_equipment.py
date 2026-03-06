@@ -1,6 +1,7 @@
 from gdm.distribution.enums import VoltageTypes, ConnectionType, Phase
 from gdm.quantities import Voltage, ApparentPower
 from gdm.distribution.equipment import WindingEquipment
+from gdm.distribution.components import DistributionBus
 
 from ditto.readers.cim_iec_61968_13.cim_mapper import CimMapper
 from ditto.readers.cim_iec_61968_13.common import phase_mapper
@@ -15,15 +16,37 @@ class WindingEquipmentMapper(CimMapper):
         windings = []
         for i in range(1, 3):
             new_indices = [j for j in indices if j.startswith(f"wdg_{i}_")]
-            windings.append(self._build_winding(row[new_indices], i, row["xfmr"]))
+            windings.append(self._build_winding(row[new_indices], row, i, row["xfmr"]))
 
         return windings
 
-    def _build_winding(self, row, index, xfmr_name):
+    def _infer_phases_from_voltage(self, full_row, index):
+        bus_name = full_row.get(f"bus_{index}") if hasattr(full_row, "get") else None
+        if bus_name is None:
+            return [Phase.A, Phase.B, Phase.C]
+
+        try:
+            bus = self.system.get_component(DistributionBus, bus_name)
+        except Exception:
+            bus = None
+        if bus is None:
+            return [Phase.A, Phase.B, Phase.C]
+
+        bus_voltage = bus.rated_voltage.to("volt").magnitude
+        winding_voltage = float(full_row.get(f"wdg_{index}_rated_voltage", 0.0))
+        if bus_voltage <= 0.0 or winding_voltage <= 0.0:
+            return [Phase.A, Phase.B, Phase.C]
+
+        ratio = winding_voltage / bus_voltage
+        if 1.45 <= ratio <= 2.05:
+            return [Phase.A, Phase.B, Phase.C]
+        return [Phase.A]
+
+    def _build_winding(self, row, full_row, index, xfmr_name):
         if f"wdg_{index}_phase" in row:
             self.phases = [phase_mapper[phs] for phs in row[f"wdg_{index}_phase"].replace("N", "")]
         else:
-            self.phases = [Phase.A, Phase.B, Phase.C]
+            self.phases = self._infer_phases_from_voltage(full_row, index)
         self.n_phases = len(self.phases)
 
         mapping = {

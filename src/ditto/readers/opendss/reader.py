@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from gdm.distribution.common import SequencePair
 from gdm.distribution import DistributionSystem
 
 from pydantic import ValidationError
@@ -31,13 +30,8 @@ from ditto.readers.opendss.components.branches import (
 from ditto.readers.reader import AbstractReader
 
 
-SEQUENCE_PAIRS = [SequencePair(1, 2), SequencePair(1, 3), SequencePair(2, 3)]
-
-
 class Reader(AbstractReader):
     """Class interface for Opendss case file reader"""
-
-    validation_errors = []
 
     def __init__(
         self,
@@ -53,6 +47,7 @@ class Reader(AbstractReader):
         """
 
         self.system = DistributionSystem(auto_add_composed_components=True)
+        self.validation_errors: list[list[str]] = []
         self.Opendss_master_file = Path(Opendss_master_file)
         self.crs = crs
         self._read(use_split_phase_representation)
@@ -167,7 +162,7 @@ class Reader(AbstractReader):
             console = Console()
             console.print(error_table)
             raise Exception(
-                "Validations errors occured when running the script. See the table above"
+                "Validation errors occurred when running the script. See the table above"
             )
 
         ...
