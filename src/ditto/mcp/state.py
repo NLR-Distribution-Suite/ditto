@@ -29,9 +29,7 @@ class AppState:
         """Retrieve a system by name. Raises ``KeyError`` if not found."""
         if name not in self.systems:
             available = ", ".join(self.systems.keys()) or "(none)"
-            raise KeyError(
-                f"No system loaded with name '{name}'. " f"Available systems: {available}"
-            )
+            raise KeyError(f"No system loaded with name '{name}'. Available systems: {available}")
         return self.systems[name]
 
     def summary(self, name: str) -> dict:
