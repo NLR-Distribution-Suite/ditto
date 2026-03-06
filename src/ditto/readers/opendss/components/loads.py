@@ -99,7 +99,7 @@ def get_loads(system: System) -> list[DistributionLoad]:
     flag = odd.Loads.First()
     while flag > 0:
         load_name = odd.Loads.Name().lower()
-        LoadEquipment, buses, nodes = _build_load_equipment()
+        load_equipment, buses, nodes = _build_load_equipment()
         bus1 = buses[0].split(".")[0]
         profile_names = [odd.Loads.Daily(), odd.Loads.Yearly(), odd.Loads.Duty()]
         profiles = build_profiles(profile_names, ObjectsWithProfile.LOAD, profile_catalog)
@@ -107,7 +107,7 @@ def get_loads(system: System) -> list[DistributionLoad]:
             name=load_name,
             bus=system.get_component(DistributionBus, bus1),
             phases=[PHASE_MAPPER[el] for el in nodes],
-            equipment=LoadEquipment,
+            equipment=load_equipment,
         )
         for profile_name in profile_names:
             if profile_name in profiles:

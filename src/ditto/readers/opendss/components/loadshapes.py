@@ -9,7 +9,7 @@ from infrasys.normalization import NormalizationMax, NormalizationByValue
 from gdm.quantities import ActivePower, ReactivePower, Irradiance
 from infrasys.time_series_models import SingleTimeSeries
 from infrasys.base_quantity import BaseQuantity
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import opendssdirect as odd
 from loguru import logger
 
@@ -39,13 +39,12 @@ class ProfileTypes(str, Enum):
 class ProfileMap(BaseModel):
     """Profile mapping"""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     quantity: type[BaseQuantity] | None
     units: str | None
     profile_type: ProfileTypes
     variable: str
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 profile_type_to_base_type_map = {

@@ -20,12 +20,19 @@ class DistributionVoltageSourceMapper(CimMapper):
         )
 
     def map_name(self, row):
-        return row["source"]
+        return self._required_field(row, "source", "DistributionVoltageSource")
 
     def map_bus(self, row):
-        bus_name = row["bus"]
-        bus = self.system.get_component(component_type=DistributionBus, name=bus_name)
-        return bus
+        bus_name = self._required_field(
+            row,
+            "bus",
+            f"DistributionVoltageSource '{self.map_name(row)}'",
+        )
+        return self._required_component(
+            DistributionBus,
+            bus_name,
+            f"DistributionVoltageSource '{self.map_name(row)}'",
+        )
 
     def map_phases(self):
         return [phase_mapper[phase] for phase in ["A", "B", "C"]]

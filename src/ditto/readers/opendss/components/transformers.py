@@ -76,7 +76,7 @@ def _build_xfmr_equipment(
                 return dtype(result)
 
     def set_ppty(property: str, value: Any):
-        return odd.Command(f"{model_type}.{model_name}.{property}={value}")
+        return odd.Text.Command(f"{model_type}.{model_name}.{property}={value}")
 
     all_reactances = [
         query("xhl", float),

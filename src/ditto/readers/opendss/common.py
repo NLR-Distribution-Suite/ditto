@@ -19,6 +19,15 @@ PHASE_MAPPER = {
 UNIT_MAPPER = {0: "m", 1: "mi", 2: "kft", 3: "km", 4: "m", 5: "ft", 6: "in", 7: "cm"}
 
 
+def get_unit_index(units_value) -> int:
+    """Extract an int from an opendssdirect Units() return value.
+
+    Older versions of opendssdirect (>=0.7) return a plain int while
+    newer versions return an IntEnum with a `.value` attribute.
+    """
+    return units_value.value if hasattr(units_value, "value") else int(units_value)
+
+
 class LoadTypes(IntEnum):
     """Load types represented in Ditto"""
 
@@ -62,12 +71,12 @@ def remove_keys_from_dict(model_dict: dict, key_names: list[str] = ["name", "uui
             model_dict.pop(key_name)
         for k, v in model_dict.items():
             if isinstance(v, dict):
-                model_dict[k] = remove_keys_from_dict(v)
+                model_dict[k] = remove_keys_from_dict(v, key_names)
             elif isinstance(v, list):
                 values = []
                 for value in v:
                     if isinstance(value, dict):
-                        value = remove_keys_from_dict(value)
+                        value = remove_keys_from_dict(value, key_names)
                     values.append(value)
                     model_dict[k] = values
     return model_dict
@@ -95,7 +104,8 @@ def get_equipment_from_catalog(
             catalog[model_hash] = model
             return model
     else:
-        assert sub_catalog in catalog and isinstance(catalog[sub_catalog], dict)
+        if sub_catalog not in catalog or not isinstance(catalog[sub_catalog], dict):
+            raise ValueError(f"Sub-catalog '{sub_catalog}' not found or not a dict in catalog")
         if model_hash in catalog[sub_catalog]:
             return catalog[sub_catalog][model_hash]
         else:
