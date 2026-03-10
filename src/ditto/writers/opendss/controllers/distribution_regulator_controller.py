@@ -17,8 +17,8 @@ class RegulatorControllerMapper(OpenDSSMapper):
         self.xfmr_name = xfmr_name
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name
-        self.opendss_dict["Transformer"] = self.xfmr_name
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
+        self.opendss_dict["Transformer"] = self.get_opendss_safe_name(self.xfmr_name)
 
     def map_delay(self):
         self.opendss_dict["TapDelay"] = self.model.delay.to("s").magnitude
@@ -59,7 +59,7 @@ class RegulatorControllerMapper(OpenDSSMapper):
     def map_controlled_bus(self):
         self.opendss_dict[
             "Bus"
-        ] = f"{self.model.controlled_bus.name}{self.phase_map[self.model.controlled_phase]}"
+        ] = f"{self.get_opendss_safe_name(self.model.controlled_bus.name)}{self.phase_map[self.model.controlled_phase]}"
 
     def map_controlled_phase(self):
         ...

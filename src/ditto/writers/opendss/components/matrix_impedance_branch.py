@@ -13,8 +13,11 @@ class MatrixImpedanceBranchMapper(DistributionBranchMapper):
     altdss_composition_name = "Line"
     opendss_file = OpenDSSFileTypes.LINES_FILE.value
 
+    def map_name(self):
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
+
     def map_equipment(self):
-        self.opendss_dict["LineCode"] = self.model.equipment.name
+        self.opendss_dict["LineCode"] = self.get_opendss_safe_name(self.model.equipment.name)
 
     def map_in_service(self):
         self.opendss_dict["enabled"] = self.model.in_service

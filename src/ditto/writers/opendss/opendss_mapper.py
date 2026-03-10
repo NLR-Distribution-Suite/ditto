@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from gdm.distribution import DistributionSystem
 from infrasys import Component
+from loguru import logger
 
 
 # TODO: Define a BaseMapper class one level up from this?
@@ -88,3 +89,15 @@ class OpenDSSMapper(ABC):
                 profile_name = str(self.model.uuid)
 
             return profile_name
+
+    def get_opendss_safe_name(self, name: str) -> str:
+        """Fix the name to be compatible with OpenDSS by replacing spaces and periods with underscores."""
+
+        not_safe_characters = [" ", ".", "=", "!", "[", "]", "{", "}", "@", "%", "~"]
+
+        for char in not_safe_characters:
+            if char in name:
+                logger.debug(f"Replacing {char} in {name} with _ for OpenDSS compatibility.")
+                name = name.replace(char, "_")
+
+        return name
