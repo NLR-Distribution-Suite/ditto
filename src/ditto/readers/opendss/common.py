@@ -2,8 +2,8 @@ from enum import IntEnum
 from typing import Any
 import ast
 
-from gdm.distribution.enums import Phase
 from gdm.distribution.components import DistributionVoltageSource
+from gdm.distribution.enums import Phase
 from infrasys import Component, System
 import opendssdirect as odd
 

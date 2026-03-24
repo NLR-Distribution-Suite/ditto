@@ -71,6 +71,3 @@ class DistributionCapacitorMapper(OpenDSSMapper):
         self.opendss_dict["kvar"] = [total_kvar_per_bank] * num_banks
 
         # TODO: We're not building equipment for the Capacitors. This means that there's no guarantee that we're addressing all of the attributes in the equipment in a structured way like we are for the component.
-
-    def map_in_service(self):
-        self.opendss_dict["Enabled"] = "Yes" if self.model.in_serivce else "No"
