@@ -298,6 +298,11 @@ class Reader(AbstractReader):
         return self.system
 
     def assign_bus_voltages(self):
+        """
+        Assign bus voltages by traversing the system from voltage sources outward using BFS.
+        Voltage is assigned based on the voltage source and transformer ratings.
+        """
+
         observed_buses = set()
         observed_components = set()
 
@@ -367,6 +372,12 @@ class Reader(AbstractReader):
         return bus_obj_map
 
     def serialize_parallel_branches(self):
+        """
+        Detect parallel branches and serialize them by inserting new buses and copying components as needed.
+        Non-transformer branches are chained in series before the transformer if they are in parallel with a transformer.
+        Components of the same type are left in parallel, but renamed to avoid duplicate names.
+        """
+
         parallel_components = self._get_parallel_components()
 
         for i, comps in enumerate(parallel_components):
