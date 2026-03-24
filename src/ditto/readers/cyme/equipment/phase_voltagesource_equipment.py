@@ -19,7 +19,7 @@ class PhaseVoltageSourceEquipmentMapper(CymeMapper):
                 r1=Resistance(0.001, "ohm"),
                 x0=Reactance(0.001, "ohm"),
                 x1=Reactance(0.001, "ohm"),
-                voltage=Voltage(source_voltage, "kilovolt"),
+                voltage=Voltage(source_voltage, 'kilovolt'),
                 voltage_type=VoltageTypes.LINE_TO_GROUND,
                 angle=Angle(i * (360.0 / num_phases), "degree"),
             )

@@ -9,48 +9,42 @@ class DistributionBusMapper(CymeMapper):
     def __init__(self, cyme_model):
         super().__init__(cyme_model)
 
-    cyme_file = "Network"
-    cyme_section = "NODE"
+    cyme_file = 'Network'
+    cyme_section = 'NODE'
 
-    def parse(
-        self, row, from_node_sections, to_node_sections, node_feeder_map, node_substation_map
-    ):
+    def parse(self, row, from_node_sections, to_node_sections, node_feeder_map, node_substation_map):
         name = self.map_name(row)
         feeder = node_feeder_map.get(name, None)
         substation = node_substation_map.get(name, None)
-
+        
         coordinate = self.map_coordinate(row)
         phases = self.map_phases(row, from_node_sections, to_node_sections)
         rated_voltage = self.map_rated_voltage(row)
         voltage_limits = self.map_voltagelimits(row)
         voltage_type = self.map_voltage_type(row)
-        return DistributionBus.model_construct(
-            name=name,
-            coordinate=coordinate,
-            rated_voltage=rated_voltage,
-            feeder=feeder,
-            substation=substation,
-            phases=phases,
-            voltagelimits=voltage_limits,
-            voltage_type=voltage_type,
-        )
+        return DistributionBus.model_construct(name=name, 
+                              coordinate=coordinate,
+                              rated_voltage=rated_voltage,
+                              feeder=feeder,
+                              substation=substation,
+                              phases=phases,
+                              voltagelimits=voltage_limits,
+                              voltage_type=voltage_type)
 
     def map_name(self, row):
-        name = row["NodeID"]
+        name = row['NodeID']
         return name
 
     def map_coordinate(self, row):
-        if row["CoordX"] != "" and row["CoordY"] != "":
+        try:
             X, Y = float(row["CoordX"]), float(row["CoordY"])
-        elif row["CoordX1"] != "" and row["CoordY1"] != "":
+        except:
             X, Y = float(row["CoordX1"]), float(row["CoordY1"])
-        else:
-            X, Y = None, None
         crs = None
         return Location(x=X, y=Y, crs=crs)
 
     def map_rated_voltage(self, row):
-        # return PositiveVoltage(float(row['UserDefinedBaseVoltage']), "kilovolts")
+        #return PositiveVoltage(float(row['UserDefinedBaseVoltage']), "kilovolts")
         return Voltage(float(12.47), "kilovolts")
 
     def map_phases(self, row, from_node_sections, to_node_sections):
@@ -69,17 +63,25 @@ class DistributionBusMapper(CymeMapper):
                     all_phases.add(phase)
 
         all_phases = sorted(list(all_phases))
-        phase_map = {"A": Phase.A, "B": Phase.B, "C": Phase.C, "N": Phase.N}
-        phases = [phase_map[p] for p in all_phases if p in phase_map]
-        return phases
+        phases = []
+        if "A" in all_phases:
+            phases.append(Phase.A)
+        if "B" in all_phases:
+            phases.append(Phase.B)
+        if "C" in all_phases:
+            phases.append(Phase.C)
+        if "N" in all_phases:
+            phases.append(Phase.N)
+        return phases    
+
 
     def map_voltagelimits(self, row):
         low_voltage = None
         high_voltage = None
-        if row["LowVoltageLimit"] != "":
-            low_voltage = Voltage(row["LowVoltageLimit"], "kilovolts")
-        if row["HighVoltageLimit"] != "":
-            high_voltage = Voltage(row["HighVoltageLimit"], "kilovolts")
+        if row['LowVoltageLimit'] != '':
+            low_voltage = Voltage(row['LowVoltageLimit'], "kilovolts")
+        if row['HighVoltageLimit'] != '':
+            high_voltage = Voltage(row['HighVoltageLimit'], "kilovolts")
         if low_voltage is not None and high_voltage is not None:
             return [low_voltage, high_voltage]
         else:
