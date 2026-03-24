@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from rich.console import Console
 from infrasys import Component
 from rich.table import Table
-from collections import defaultdict
+from collections import defaultdict, deque
 
 
 from gdm.distribution.components.distribution_bus import DistributionBus
@@ -38,8 +38,6 @@ class Reader(AbstractReader):
         "MatrixImpedanceBranch",  # This must be last as it includes a catch-all for unrecognized branches
     ]
 
-    validation_errors = []
-
     def __init__(
         self,
         network_file,
@@ -49,6 +47,7 @@ class Reader(AbstractReader):
         substation_names=None,
         feeder_names=None,
     ):
+        self.validation_errors = []
         self.system = DistributionSystem(auto_add_composed_components=True)
         self.read(
             network_file,
@@ -304,7 +303,7 @@ class Reader(AbstractReader):
         bus_queue = self._start_queue_w_voltage_sources()
 
         while bus_queue:
-            current_bus_name = bus_queue.pop()
+            current_bus_name = bus_queue.popleft()
 
             current_bus = self.system.get_component(DistributionBus, name=current_bus_name)
             current_voltage = current_bus.rated_voltage
@@ -336,10 +335,10 @@ class Reader(AbstractReader):
                         bus.voltage_type = current_voltage_type
 
                     if bus.name not in observed_buses:
-                        bus_queue.add(bus.name)
+                        bus_queue.append(bus.name)
 
     def _start_queue_w_voltage_sources(self):
-        bus_queue = set()
+        bus_queue = deque()
 
         voltage_sources = list(self.system.get_components(DistributionVoltageSource))
 
@@ -349,7 +348,7 @@ class Reader(AbstractReader):
                 if len(vsource.phases) > 1
                 else vsource.equipment.sources[0].voltage
             )
-            bus_queue.add(vsource.bus.name)
+            bus_queue.append(vsource.bus.name)
 
         return bus_queue
 
