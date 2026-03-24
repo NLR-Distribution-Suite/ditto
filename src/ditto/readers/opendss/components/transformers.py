@@ -5,13 +5,17 @@ from uuid import uuid4
 from enum import Enum
 
 from gdm.quantities import ApparentPower, Voltage
-from gdm import (
-    DistributionTransformerEquipment,
+from gdm.distribution.common import SequencePair
+from gdm.distribution.components import (
     DistributionTransformer,
-    WindingEquipment,
     DistributionBus,
+)
+from gdm.distribution.equipment import (
+    DistributionTransformerEquipment,
+    WindingEquipment,
+)
+from gdm.distribution.enums import (
     ConnectionType,
-    SequencePair,
     VoltageTypes,
     Phase,
 )
@@ -61,18 +65,18 @@ def _build_xfmr_equipment(
         if result is None:
             if dtype in [float, int]:
                 return 0
-            elif dtype == str:
+            elif dtype is str:
                 return ""
             else:
                 return None
         else:
-            if dtype == list:
+            if dtype is list:
                 return literal_eval(result)
             else:
                 return dtype(result)
 
     def set_ppty(property: str, value: Any):
-        return odd.Command(f"{model_type}.{model_name}.{property}={value}")
+        return odd.Text.Command(f"{model_type}.{model_name}.{property}={value}")
 
     all_reactances = [
         query("xhl", float),
@@ -88,22 +92,22 @@ def _build_xfmr_equipment(
         set_ppty("Wdg", wdg_index + 1)
         num_phase = query("phases", int)
         if query("conn", str).lower() == "delta":
-            nominal_voltage = query("kv", float) / 1.732
+            rated_voltage = query("kv", float) / 1.732
         else:
-            nominal_voltage = query("kv", float) / 1.732 if num_phase == 3 else query("kv", float)
-        wdg_nom_voltages.append(nominal_voltage)
+            rated_voltage = query("kv", float) / 1.732 if num_phase == 3 else query("kv", float)
+        wdg_nom_voltages.append(rated_voltage)
         min_tap_pu = query("mintap", float)
         max_tap_pu = query("maxtap", float)
         num_taps = query("numtaps", int)
         taps = query("taps", list)
         tap = [taps[wdg_index]] * num_phase
-        winding = WindingEquipment(
+        winding = WindingEquipment.model_construct(
             rated_power=ApparentPower(query("kva", float), "kilova"),
             num_phases=num_phase,
             connection_type=ConnectionType.DELTA
             if query("conn", str).lower() == "delta"
             else ConnectionType.STAR,
-            nominal_voltage=Voltage(nominal_voltage, "kilovolt"),
+            rated_voltage=Voltage(rated_voltage, "kilovolt"),
             resistance=query("%r", float),
             is_grounded=False,  # TODO: Should be moved to the transformer model. Only known once the transformer is installed
             voltage_type=VoltageTypes.LINE_TO_GROUND,
@@ -118,7 +122,7 @@ def _build_xfmr_equipment(
     coupling_sequences = SEQUENCE_PAIRS[:1] if number_windings == 2 else SEQUENCE_PAIRS
     reactances = all_reactances[:1] if number_windings == 2 else all_reactances
 
-    dist_transformer = DistributionTransformerEquipment(
+    dist_transformer = DistributionTransformerEquipment.model_construct(
         name=equipment_uuid,
         pct_no_load_loss=query(r"%noloadloss", float),
         pct_full_load_loss=query(r"%loadloss", float),
@@ -142,7 +146,7 @@ def get_transformer_equipments(system: System) -> list[DistributionTransformerEq
     Returns:
         list[DistributionTransformerEquipment]: List of DistributionTransformerEquipment objects
     """
-    logger.info("parsing transformer equipment...")
+    logger.debug("parsing transformer equipment...")
     distribution_transformer_equipment_catalog = {}
     winding_equipment_catalog = {}
     odd_model_types = [v.value for v in XfmrModelTypes]
@@ -175,7 +179,7 @@ def get_transformers(
         list[DistributionTransformer]: list of distribution transformers
     """
 
-    logger.info("parsing transformer components...")
+    logger.debug("parsing transformer components...")
 
     transformers = []
     flag = odd.Transformers.First()
@@ -195,7 +199,7 @@ def get_transformers(
             distribution_transformer_equipment_catalog,
             winding_equipment_catalog,
         )
-        transformer = DistributionTransformer(
+        transformer = DistributionTransformer.model_construct(
             name=odd.Transformers.Name().lower(),
             buses=buses,
             winding_phases=phases,

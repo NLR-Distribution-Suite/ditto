@@ -1,22 +1,33 @@
+from gdm.distribution.enums import VoltageTypes
+from gdm.distribution import DistributionSystem
+from infrasys import Component
+
+
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
-from gdm.quantities import Voltage
-
+from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class DistributionVoltageSourceMapper(OpenDSSMapper):
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, model: Component, system: DistributionSystem):
+        super().__init__(model, system)
 
     altdss_name = "Vsource_Z0Z1Z2"
     altdss_composition_name = "Vsource"
     opendss_file = OpenDSSFileTypes.MASTER_FILE.value
 
+    def map_in_service(self):
+        self.opendss_dict["Enabled"] = self.model.in_service
+
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name.replace(" ", "_").replace(".", "_")
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
+
+        profile_name = self.get_profile_name(self.model)
+        if profile_name:
+            self.opendss_dict["Yearly"] = profile_name
 
     def map_bus(self):
-        self.opendss_dict["Bus1"] = self.model.bus.name.replace(" ","_").replace(".", "_")
+        self.opendss_dict["Bus1"] = self.get_opendss_safe_name(self.model.bus.name)
         for phase in self.model.phases:
             self.opendss_dict["Bus1"] += self.phase_map[phase]
 
@@ -46,14 +57,34 @@ class DistributionVoltageSourceMapper(OpenDSSMapper):
         r0 = r0.to("ohm")
         x1 = x1.to("ohm")
         x0 = x0.to("ohm")
-        # convert voltage from float to to quantity in kV
-        voltage = Voltage(voltage, "kilovolt")
+        voltage = voltage.to("kilovolt")
         rated_voltage = rated_voltage.to("kilovolt")
         angle = angle.to("degree")
 
-        v_nom = rated_voltage.magnitude
+        if self.model.equipment.sources[0].voltage_type == VoltageTypes.LINE_TO_GROUND:
+            if num_phases == 1:
+                v_mag = voltage.magnitude
+            else:
+                v_mag = voltage.magnitude * LL_LN_CONVERSION_FACTOR
+        else:
+            if num_phases == 1:
+                v_mag = voltage.magnitude / LL_LN_CONVERSION_FACTOR
+            else:
+                v_mag = voltage.magnitude
+
+        if self.model.bus.voltage_type == VoltageTypes.LINE_TO_GROUND:
+            if num_phases == 1:
+                v_nom = rated_voltage.magnitude
+            else:
+                v_nom = rated_voltage.magnitude * LL_LN_CONVERSION_FACTOR
+        else:
+            if num_phases == 1:
+                v_nom = rated_voltage.magnitude / LL_LN_CONVERSION_FACTOR
+            else:
+                v_nom = rated_voltage.magnitude
+
         self.opendss_dict["Angle"] = angle.magnitude
-        self.opendss_dict["pu"] = 1.0
+        self.opendss_dict["pu"] = v_mag / v_nom
         self.opendss_dict["BasekV"] = v_nom
         self.opendss_dict["Z0"] = complex(r0.magnitude, x0.magnitude)
         self.opendss_dict["Z1"] = complex(r1.magnitude, x1.magnitude)

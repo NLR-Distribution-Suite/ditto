@@ -1,33 +1,30 @@
+from gdm.distribution import DistributionSystem
+from infrasys import Component
+
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
 
 
 class BareConductorEquipmentMapper(OpenDSSMapper):
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, model: Component, system: DistributionSystem):
+        super().__init__(model, system)
 
     altdss_name = "WireData"
     altdss_composition_name = None
     opendss_file = OpenDSSFileTypes.WIRES_FILE.value
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name.replace(" ","_").replace(".","_")
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_conductor_diameter(self):
-        radius = self.model.conductor_diameter.magnitude / 2
-        if radius <=0:
-            radius = 0.0001
-        self.opendss_dict["Radius"] = radius
+        self.opendss_dict["Radius"] = self.model.conductor_diameter.magnitude / 2
         rad_units = str(self.model.conductor_diameter.units)
         if rad_units not in self.length_units_map:
             raise ValueError(f"{rad_units} not mapped for OpenDSS")
         self.opendss_dict["RadUnits"] = self.length_units_map[rad_units]
 
     def map_conductor_gmr(self):
-        gmr = self.model.conductor_gmr.magnitude
-        if gmr <=0:
-            gmr = 0.0001    
-        self.opendss_dict["GMRAC"] = gmr
+        self.opendss_dict["GMRAC"] = self.model.conductor_gmr.magnitude
         gmr_units = str(self.model.conductor_gmr.units)
         if gmr_units not in self.length_units_map:
             raise ValueError(f"{gmr_units} not mapped for OpenDSS")
@@ -50,7 +47,3 @@ class BareConductorEquipmentMapper(OpenDSSMapper):
     def map_emergency_ampacity(self):
         ampacity_amps = self.model.ampacity.to("ampere")
         self.opendss_dict["EmergAmps"] = ampacity_amps.magnitude
-
-    def map_loading_limit(self):
-        # Not mapped in OpenDSS
-        pass

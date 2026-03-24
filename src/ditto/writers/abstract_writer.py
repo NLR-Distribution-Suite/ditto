@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 
-from infrasys.system import System
+from gdm.distribution import DistributionSystem
 
 
 class AbstractWriter(ABC):
-
-    def __init__(self, system: System):
+    def __init__(self, system: DistributionSystem):
         self.system = system
 
     @abstractmethod

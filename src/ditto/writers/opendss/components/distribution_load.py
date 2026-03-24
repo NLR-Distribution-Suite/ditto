@@ -1,31 +1,42 @@
-from gdm.distribution.enums import ConnectionType
-
 from gdm.quantities import ActivePower, ReactivePower
+from gdm.distribution.enums import ConnectionType
+from gdm.distribution import DistributionSystem
+from infrasys import Component
+
 
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
+from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class DistributionLoadMapper(OpenDSSMapper):
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, model: Component, system: DistributionSystem):
+        super().__init__(model, system)
 
     altdss_name = "Load_kWkvar"
     altdss_composition_name = "Load"
     opendss_file = OpenDSSFileTypes.LOADS_FILE.value
 
+    def map_in_service(self):
+        self.opendss_dict["Enabled"] = self.model.in_service
+
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name.replace(" ","_").replace(".","_")
-        # TODO: Want to set the Yearly attribute here, but need to access the system. Is that possible?
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
+
+        profile_name = self.get_profile_name(self.model)
+        if profile_name:
+            self.opendss_dict["Yearly"] = profile_name
 
     def map_bus(self):
         num_phases = len(self.model.phases)
-        self.opendss_dict["Bus1"] = self.model.bus.name.replace(" ","_").replace(".","_")
+        self.opendss_dict["Bus1"] = self.get_opendss_safe_name(self.model.bus.name)
         for phase in self.model.phases:
             self.opendss_dict["Bus1"] += self.phase_map[phase]
         # TODO: Should we include the phases its connected to here?
         nom_voltage = self.model.bus.rated_voltage.to("kV").magnitude
-        self.opendss_dict["kV"] = nom_voltage if num_phases == 1 else nom_voltage * 1.732
+        self.opendss_dict["kV"] = (
+            nom_voltage if num_phases == 1 else nom_voltage * LL_LN_CONVERSION_FACTOR
+        )
 
     def map_phases(self):
         if (
@@ -58,9 +69,9 @@ class DistributionLoadMapper(OpenDSSMapper):
         #
         # Similar logic for reactive power.
 
-        z_real = ActivePower(0, "kilowatt") 
-        i_real = ActivePower(0, "kilowatt") 
-        p_real = ActivePower(0, "kilowatt") 
+        z_real = ActivePower(0, "kilowatt")
+        i_real = ActivePower(0, "kilowatt")
+        p_real = ActivePower(0, "kilowatt")
         z_imag = ReactivePower(0, "kilovar")
         i_imag = ReactivePower(0, "kilovar")
         p_imag = ReactivePower(0, "kilovar")

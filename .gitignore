@@ -5,6 +5,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+tests/dump_from_tests/
+
 # C extensions
 *.so
 
@@ -175,3 +177,9 @@ cython_debug/
 *.dsv
 *.dbl
 *.DBL
+.qodo
+.DS_Store
+
+# OpenDSS output artifacts (written by tests / writer)
+/*.dss
+/test_circuit/

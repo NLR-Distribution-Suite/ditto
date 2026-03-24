@@ -1,10 +1,10 @@
 from gdm.quantities import (
-    Current,
-    Distance,
     ResistancePULength,
+    Distance,
+    Current,
     Voltage,
 )
-from gdm import ConcentricCableEquipment
+from gdm.distribution.equipment import ConcentricCableEquipment
 from pydantic import PositiveInt
 import opendssdirect as odd
 from loguru import logger
@@ -19,7 +19,7 @@ def get_cables_equipment() -> list[ConcentricCableEquipment]:
         list[ConcentricCableEquipment]: list of ConcentricCableEquipment
     """
 
-    logger.info("parsing cable components...")
+    logger.debug("parsing cable components...")
     concentric_cable_equipment_catalog = {}
     model_type = "CNData"
     cables = []
@@ -36,7 +36,7 @@ def get_cables_equipment() -> list[ConcentricCableEquipment]:
         gmr_strand = query_model_data(model_type, model_name, "gmr", float)
         diam_strand = query_model_data(model_type, model_name, "diam", float)
 
-        cable = ConcentricCableEquipment(
+        cable = ConcentricCableEquipment.model_construct(
             strand_ac_resistance=ResistancePULength(
                 query_model_data(model_type, model_name, "rstrand", float), f"ohms/{length_units}"
             ),
@@ -73,7 +73,6 @@ def get_cables_equipment() -> list[ConcentricCableEquipment]:
             conductor_diameter=Distance(diam if diam else gmr / 0.7788, f"{radius_units}"),
             conductor_gmr=Distance(gmr if gmr else diam * 0.7788, f"{gmr_units}"),
             rated_voltage=Voltage(12.47, "volts"),
-            loading_limit=None,
             name=model_type,
         )
 

@@ -1,5 +1,5 @@
 from gdm.quantities import Current, Distance, ResistancePULength
-from gdm import BareConductorEquipment
+from gdm.distribution.equipment import BareConductorEquipment
 import opendssdirect as odd
 from loguru import logger
 
@@ -13,7 +13,7 @@ def get_conductors_equipment() -> list[BareConductorEquipment]:
         list[BareConductorEquipment]: list of BareConductorEquipment
     """
 
-    logger.info("parsing conductor components...")
+    logger.debug("parsing conductor components...")
     bare_conductor_equipment_catalog = {}
     model_type = "WireData"
     conductors = []
@@ -26,7 +26,7 @@ def get_conductors_equipment() -> list[BareConductorEquipment]:
         length_units = query_model_data(model_type, model_name, "runits", str)
         gmr = query_model_data(model_type, model_name, "gmr", float)
         diam = query_model_data(model_type, model_name, "diam", float)
-        conductor = BareConductorEquipment(
+        conductor = BareConductorEquipment.model_construct(
             emergency_ampacity=Current(
                 query_model_data(model_type, model_name, "emergamps", float), "ampere"
             ),
@@ -41,7 +41,6 @@ def get_conductors_equipment() -> list[BareConductorEquipment]:
             ampacity=Current(
                 query_model_data(model_type, model_name, "normamps", float), "ampere"
             ),
-            loading_limit=None,
             name=model_name,
         )
 

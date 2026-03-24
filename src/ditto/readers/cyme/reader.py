@@ -1,5 +1,3 @@
-from gdm.quantities import Distance, Current, ResistancePULength
-from gdm.distribution.equipment.bare_conductor_equipment import BareConductorEquipment
 from gdm.distribution.distribution_system import DistributionSystem
 from ditto.readers.reader import AbstractReader
 from ditto.readers.cyme.utils import read_cyme_data, network_truncation
@@ -9,7 +7,7 @@ from pydantic import ValidationError
 from rich.console import Console
 from infrasys import Component
 from rich.table import Table
-from collections import defaultdict
+from collections import defaultdict, deque
 
 
 from gdm.distribution.components.distribution_bus import DistributionBus
@@ -35,14 +33,11 @@ class Reader(AbstractReader):
         "GeometryBranchEquipment",
         "GeometryBranchByPhaseEquipment",
         "GeometryBranch",
-        "GeometryBranchByPhase",
         "DistributionTransformerByPhase",
         "DistributionTransformer",
         "DistributionTransformerThreeWinding",
         "MatrixImpedanceBranch",  # This must be last as it includes a catch-all for unrecognized branches
     ]
-
-    validation_errors = []
 
     def __init__(
         self,
@@ -53,6 +48,7 @@ class Reader(AbstractReader):
         substation_names=None,
         feeder_names=None,
     ):
+        self.validation_errors = []
         self.system = DistributionSystem(auto_add_composed_components=True)
         self.read(
             network_file,
@@ -84,20 +80,9 @@ class Reader(AbstractReader):
                 "MatrixImpedanceFuseEquipmentMapper",
             ]
         )
-        default_conductor = BareConductorEquipment(
-            name="Default",
-            conductor_diameter=Distance(0.368000, "inch").to("mm"),
-            conductor_gmr=Distance(0.133200, "inch").to("mm"),
-            ampacity=Current(600.0, "amp"),
-            emergency_ampacity=Current(600.0, "amp"),
-            ac_resistance=ResistancePULength(0.555000, "ohm/mile").to("ohm/km"),
-            dc_resistance=ResistancePULength(0.555000, "ohm/mile").to("ohm/km"),
-        )
-        self.system.add_component(default_conductor)
 
         node_feeder_map = {}
         node_substation_map = {}
-        network_voltage_map = {}
         load_record = {}
         used_sections = set()
 
@@ -105,7 +90,6 @@ class Reader(AbstractReader):
             network_file,
             "SECTION",
             node_feeder_map=node_feeder_map,
-            network_voltage_map=network_voltage_map,
             node_substation_map=node_substation_map,
             parse_feeders=True,
             parse_substation=True,
@@ -160,8 +144,11 @@ class Reader(AbstractReader):
                         read_cyme_data(load_file, "LOADS", index_col="DeviceNumber"),
                         load_record,
                     ],
-                    "GeometryBranchMapper": lambda: [used_sections, section_id_sections],
-                    "GeometryBranchByPhaseMapper": lambda: [used_sections, section_id_sections],
+                    "GeometryBranchMapper": lambda: [
+                        used_sections,
+                        section_id_sections,
+                        cyme_section,
+                    ],
                     "BareConductorEquipmentMapper": lambda: [],
                     "GeometryBranchEquipmentMapper": lambda: [
                         read_cyme_data(equipment_file, "SPACING TABLE FOR LINE", index_col="ID")
@@ -282,7 +269,7 @@ class Reader(AbstractReader):
             console = Console()
             console.print(error_table)
             raise Exception(
-                "Validations errors occured when running the script. See the table above"
+                "Validations errors occurred when running the script. See the table above"
             )
 
     def _prepare_data(
@@ -319,7 +306,7 @@ class Reader(AbstractReader):
         bus_queue = self._start_queue_w_voltage_sources()
 
         while bus_queue:
-            current_bus_name = bus_queue.pop()
+            current_bus_name = bus_queue.popleft()
 
             current_bus = self.system.get_component(DistributionBus, name=current_bus_name)
             current_voltage = current_bus.rated_voltage
@@ -351,10 +338,10 @@ class Reader(AbstractReader):
                         bus.voltage_type = current_voltage_type
 
                     if bus.name not in observed_buses:
-                        bus_queue.add(bus.name)
+                        bus_queue.append(bus.name)
 
     def _start_queue_w_voltage_sources(self):
-        bus_queue = set()
+        bus_queue = deque()
 
         voltage_sources = list(self.system.get_components(DistributionVoltageSource))
 
@@ -362,9 +349,9 @@ class Reader(AbstractReader):
             vsource.bus.rated_voltage = (
                 vsource.equipment.sources[0].voltage * 1.732
                 if len(vsource.phases) > 1
-                else vsource.equipment[0].voltage
+                else vsource.equipment.sources[0].voltage
             )
-            bus_queue.add(vsource.bus.name)
+            bus_queue.append(vsource.bus.name)
 
         return bus_queue
 

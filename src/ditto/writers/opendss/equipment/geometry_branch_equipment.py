@@ -1,20 +1,23 @@
-from gdm.distribution.equipment.bare_conductor_equipment import BareConductorEquipment
-from gdm.distribution.equipment.concentric_cable_equipment import ConcentricCableEquipment
+from gdm.distribution.equipment import BareConductorEquipment, ConcentricCableEquipment
+from gdm.distribution.enums import WireInsulationType
+from gdm.distribution import DistributionSystem
+from infrasys import Component
+
 
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
 
 
 class GeometryBranchEquipmentMapper(OpenDSSMapper):
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, model: Component, system: DistributionSystem):
+        super().__init__(model, system)
 
     altdss_name = "LineGeometry_xh"
     altdss_composition_name = "LineGeometry"
     opendss_file = OpenDSSFileTypes.LINECODES_FILE.value
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name.replace(" ","_").replace(".","_")
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_common(self):
         units = []
@@ -55,5 +58,14 @@ class GeometryBranchEquipmentMapper(OpenDSSMapper):
             #                conductor_type = 'tsdata'
             else:
                 raise ValueError(f"Unknown conductor type {conductor}")
-            all_conductors.append(f"{conductor_type}.{conductor.name.replace(' ','_').replace('.','_')}")
+            all_conductors.append(f"{conductor_type}.{self.get_opendss_safe_name(conductor.name)}")
         self.opendss_dict["Conductors"] = all_conductors
+
+    def map_insulation(self):
+        for conductor in self.model.conductors:
+            if isinstance(conductor, BareConductorEquipment):
+                self.opendss_dict["EpsR"] = WireInsulationType.AIR.value
+            elif isinstance(conductor, ConcentricCableEquipment):
+                self.opendss_dict["EpsR"] = WireInsulationType.XLPE.value
+            else:
+                raise ValueError(f"Unknown conductor type {conductor}")

@@ -1,13 +1,14 @@
 from uuid import uuid4
 
-from gdm import (
-    DistributionBus,
-    DistributionCapacitor,
-    CapacitorEquipment,
-    PhaseCapacitorEquipment,
-    ConnectionType,
+from gdm.distribution.enums import VoltageTypes, ConnectionType
+from gdm.distribution.components import DistributionCapacitor, DistributionBus
+from gdm.distribution.equipment import PhaseCapacitorEquipment, CapacitorEquipment
+from gdm.quantities import (
+    ReactivePower,
+    Resistance,
+    Reactance,
+    Voltage,
 )
-from gdm.quantities import ReactivePower, Resistance, Reactance
 from infrasys.system import System
 import opendssdirect as odd
 from loguru import logger
@@ -35,13 +36,21 @@ def _build_capacitor_source_equipment(
     buses = odd.CktElement.BusNames()
     num_phase = odd.CktElement.NumPhases()
     kvar_ = odd.Capacitors.kvar()
+
     ph_caps = []
     nodes = buses[0].split(".")[1:] if num_phase != 3 else ["1", "2", "3"]
+    live_nodes = [node for node in nodes if node != "0"]
+
+    voltage_type = (
+        VoltageTypes.LINE_TO_GROUND
+        if num_phase == 1 and len(live_nodes)
+        else VoltageTypes.LINE_TO_LINE
+    )
 
     for el in nodes:
-        phase_capacitor = PhaseCapacitorEquipment(
+        phase_capacitor = PhaseCapacitorEquipment.model_construct(
             name=f"{equipment_uuid}_{el}",
-            rated_capacity=ReactivePower(kvar_ / len(nodes), "kilovar"),
+            rated_reactive_power=ReactivePower(kvar_ / len(nodes), "kilovar"),
             num_banks=odd.Capacitors.NumSteps(),
             num_banks_on=sum(odd.Capacitors.States()),
             resistance=Resistance(0, "ohm"),
@@ -52,10 +61,12 @@ def _build_capacitor_source_equipment(
         )
         ph_caps.append(phase_capacitor)
 
-    capacitor_equipment = CapacitorEquipment(
+    capacitor_equipment = CapacitorEquipment.model_construct(
         name=str(equipment_uuid),
         phase_capacitors=ph_caps,
         connection_type=ConnectionType.DELTA if odd.Capacitors.IsDelta() else ConnectionType.STAR,
+        rated_voltage=Voltage(odd.Capacitors.kV(), "kilovolt"),
+        voltage_type=voltage_type,
     )
 
     capacitor_equipment = get_equipment_from_catalog(
@@ -75,7 +86,7 @@ def get_capacitors(system: System) -> list[DistributionCapacitor]:
         List[DistributionCapacitor]: List of DistributionCapacitor objects
     """
 
-    logger.info("parsing capacitor components...")
+    logger.debug("parsing capacitor components...")
     phase_capacitor_equipment_catalog = {}
     capacitor_equipment_catalog = {}
     capacitors = []
@@ -86,7 +97,7 @@ def get_capacitors(system: System) -> list[DistributionCapacitor]:
         )
         bus1 = buses[0].split(".")[0]
         capacitors.append(
-            DistributionCapacitor(
+            DistributionCapacitor.model_construct(
                 name=odd.Capacitors.Name().lower(),
                 bus=system.get_component(DistributionBus, bus1),
                 phases=[PHASE_MAPPER[el] for el in nodes],

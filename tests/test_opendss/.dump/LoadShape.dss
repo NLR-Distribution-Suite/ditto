@@ -1,0 +1,2 @@
+new LoadShape.pv_profile NPts=5 Hour=[0.0, 48.0, 744.0, 792.0, 1440.0] UseActual=True PMult=[0.0, 0.5, 1.0, 0.5, 0.0]
+new LoadShape.load_profile_kw NPts=5 Hour=[0.0, 48.0, 744.0, 792.0, 1440.0] QMult=[1.0, 2.0, 3.0, 4.0, 5.0] UseActual=True PMult=[1.0, 2.0, 3.0, 4.0, 5.0]
