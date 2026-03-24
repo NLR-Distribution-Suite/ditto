@@ -46,6 +46,7 @@ class ConcentricCableEquipmentMapper(OpenDSSMapper):
 
     def map_strand_gmr(self):
         self.opendss_dict["GMRStrand"] = self.model.strand_gmr.magnitude
+
     def map_phase_ac_resistance(self):
         resistance = self.model.phase_ac_resistance.to("ohms/km")
         self.opendss_dict["RAC"] = resistance.magnitude

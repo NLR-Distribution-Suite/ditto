@@ -1,6 +1,4 @@
 from ditto.writers.opendss.components.distribution_bus import DistributionBusMapper
-from ditto.writers.opendss.equipment.bare_conductor_equipment import BareConductorEquipmentMapper
-from ditto.writers.opendss.equipment.concentric_cable_equipment import ConcentricCableEquipmentMapper
 from ditto.writers.opendss.components.distribution_branch import DistributionBranchMapper
 from ditto.writers.opendss.components.sequence_impedance_branch import (
     SequenceImpedanceBranchMapper,

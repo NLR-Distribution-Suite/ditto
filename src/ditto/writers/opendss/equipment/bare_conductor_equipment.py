@@ -17,20 +17,14 @@ class BareConductorEquipmentMapper(OpenDSSMapper):
         self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_conductor_diameter(self):
-        radius = self.model.conductor_diameter.magnitude / 2
-        if radius <=0:
-            radius = 0.0001
-        self.opendss_dict["Radius"] = radius
+        self.opendss_dict["Radius"] = self.model.conductor_diameter.magnitude / 2
         rad_units = str(self.model.conductor_diameter.units)
         if rad_units not in self.length_units_map:
             raise ValueError(f"{rad_units} not mapped for OpenDSS")
         self.opendss_dict["RadUnits"] = self.length_units_map[rad_units]
 
     def map_conductor_gmr(self):
-        gmr = self.model.conductor_gmr.magnitude
-        if gmr <=0:
-            gmr = 0.0001    
-        self.opendss_dict["GMRAC"] = gmr
+        self.opendss_dict["GMRAC"] = self.model.conductor_gmr.magnitude
         gmr_units = str(self.model.conductor_gmr.units)
         if gmr_units not in self.length_units_map:
             raise ValueError(f"{gmr_units} not mapped for OpenDSS")

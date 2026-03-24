@@ -27,10 +27,7 @@ class DistributionBranchMapper(OpenDSSMapper):
                 self.opendss_dict["Bus2"] += self.phase_map[phase]
 
     def map_length(self):
-        length = self.model.length.magnitude
-        if length ==0:
-            length = 0.0001  # OpenDSS does not accept 0 length lines
-        self.opendss_dict["Length"] = length
+        self.opendss_dict["Length"] = self.model.length.magnitude
         model_unit = str(self.model.length.units)
         if model_unit not in self.length_units_map:
             raise ValueError(f"{model_unit} not mapped for OpenDSS")

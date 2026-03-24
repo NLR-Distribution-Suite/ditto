@@ -84,7 +84,7 @@ class DistributionVoltageSourceMapper(OpenDSSMapper):
                 v_nom = rated_voltage.magnitude
 
         self.opendss_dict["Angle"] = angle.magnitude
-        self.opendss_dict["pu"] = 1.0
+        self.opendss_dict["pu"] = v_mag / v_nom
         self.opendss_dict["BasekV"] = v_nom
         self.opendss_dict["Z0"] = complex(r0.magnitude, x0.magnitude)
         self.opendss_dict["Z1"] = complex(r1.magnitude, x1.magnitude)

@@ -31,7 +31,6 @@ class Writer(AbstractWriter):
         altdss_class = getattr(altdss_models, model_map.altdss_name)
         # Example altdss_class is Bus
         altdss_object = altdss_class.model_validate(model_map.opendss_dict)
-
         if model_map.altdss_composition_name is not None:
             altdss_composition_class = getattr(altdss_models, model_map.altdss_composition_name)
 
