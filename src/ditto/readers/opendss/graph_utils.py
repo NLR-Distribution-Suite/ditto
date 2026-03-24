@@ -1,10 +1,27 @@
-from gdm import DistributionTransformer, DistributionSystem
+from loguru import logger
+
+from gdm.distribution import DistributionSystem
+from gdm.distribution.enums import Phase
+from gdm.distribution.components import (
+    DistributionTransformer,
+    DistributionBranchBase,
+    DistributionCapacitor,
+    DistributionSolar,
+    DistributionLoad,
+    DistributionBus,
+)
 from networkx import Graph, DiGraph
 
 import networkx as nx
-import gdm
 
 from ditto.readers.opendss.common import get_source_bus
+
+
+def dfs_multidigraph(G: nx.MultiGraph, source: str) -> nx.MultiDiGraph:
+    tree = nx.MultiDiGraph()
+    for u, v, k in nx.edge_dfs(G, source=source):
+        tree.add_edge(u, v, key=k, **G[u][v][k])
+    return tree
 
 
 def update_split_phase_nodes(graph: Graph, system: DistributionSystem) -> DistributionSystem:
@@ -19,12 +36,11 @@ def update_split_phase_nodes(graph: Graph, system: DistributionSystem) -> Distri
     """
 
     source_buses = get_source_bus(system)
-    assert len(set(source_buses)) == 1, "Source bus should be singular"
-    tree = nx.dfs_tree(graph, source=source_buses[0])
-    for u, v in tree.edges():
-        attrs = graph.edges[u, v]
-        tree.add_edge(u, v, **attrs)
-
+    if len(set(source_buses)) != 1:
+        raise ValueError(
+            f"Expected exactly one source bus, but found {len(set(source_buses))}: {set(source_buses)}"
+        )
+    tree = dfs_multidigraph(graph, source=source_buses[0])
     split_phase_transformers = _get_split_phase_transformers(system)
     for transformer in split_phase_transformers:
         _get_split_phase_sub_graph(transformer, tree, system)
@@ -61,34 +77,29 @@ def _get_split_phase_sub_graph(
         Graph: subgraph for a given distribution transformer
     """
 
-    xfmr_buses = list({bus.name for bus in xfmr.buses})
-    hv_xfmr_bus = (
-        xfmr_buses[1]
-        if xfmr_buses[0] in list(nx.dfs_successors(graph, xfmr_buses[1]))
-        else xfmr_buses[0]
+    xfmr_buses = list(
+        {(bus.name, bus.rated_voltage.to("kilovolt").magnitude) for bus in xfmr.buses}
     )
-    lv_xfmr_bus = (
-        xfmr_buses[0]
-        if xfmr_buses[0] in list(nx.dfs_successors(graph, xfmr_buses[1]))
-        else xfmr_buses[1]
-    )
-
+    hv_xfmr_bus = max(xfmr_buses, key=lambda x: x[1])[0]
+    lv_xfmr_bus = min(xfmr_buses, key=lambda x: x[1])[0]
+    logger.debug(f"Processing split-phase transformer: {xfmr.name}")
     xfmr_info = graph[hv_xfmr_bus][lv_xfmr_bus]
-    assert (
-        xfmr_info["type"] == "DistributionTransformer"
-    ), f"Unsupported model type {xfmr_info['type']}"
-    model_type = getattr(gdm, xfmr_info["type"])
-    xfmr_model = system.get_component(model_type, xfmr_info["name"])
 
-    filter_nodes = []
-    for node, sucessors in nx.bfs_successors(graph, lv_xfmr_bus):
-        filter_nodes.append(node)
-        filter_nodes.extend(sucessors)
+    for k in xfmr_info:
+        if xfmr_info[k]["type"] != DistributionTransformer:
+            raise TypeError(f"Unsupported model type {xfmr_info[k]['type']}")
+        model_type = xfmr_info[k]["type"]
+        xfmr_model = system.get_component(model_type, xfmr_info[k]["name"])
 
-    descendants = set(filter_nodes)
-    subgraph = graph.subgraph(descendants)
-    _get_components_in_subgraph(hv_xfmr_bus, xfmr_model, subgraph, system)
-    return
+        filter_nodes = []
+        for node, sucessors in nx.bfs_successors(graph, lv_xfmr_bus):
+            filter_nodes.append(node)
+            filter_nodes.extend(sucessors)
+
+        descendants = set(filter_nodes)
+        subgraph = graph.subgraph(descendants)
+        _get_components_in_subgraph(hv_xfmr_bus, xfmr_model, subgraph, system)
+        return
 
 
 def _get_components_in_subgraph(
@@ -109,12 +120,9 @@ def _get_components_in_subgraph(
 
     secondary_wdg_phases = xfmr_model.winding_phases[1:]
     xfmr_phases_filtered = []
-    split_phases = [gdm.Phase.S1, gdm.Phase.S2]
+    split_phases = [Phase.S1, Phase.S2]
     xfmr_phases_filtered = [
-        phase
-        for phase_lists in secondary_wdg_phases
-        for phase in phase_lists
-        if phase != gdm.Phase.N
+        phase for phase_lists in secondary_wdg_phases for phase in phase_lists if phase != Phase.N
     ]
     mapped_split_phases = {k: v for k, v in zip(xfmr_phases_filtered, split_phases)}
     _fix_bus_phases(hv_xfmr_bus, mapped_split_phases, subgraph, system)
@@ -133,16 +141,15 @@ def _fix_bus_phases(
         subgraph (Graph): subgraph (downstream) of a split phase dirtribution transformer
         system (DistributionSystem): Instance of an gdm DistributionSystem
     """
+    for u in subgraph.nodes():
+        if u != hv_xfmr_bus:
+            bus = system.get_component(DistributionBus, u)
+            bus.phases = _mapped_phases(mapped_split_phases, bus.phases)
+
     for _, _, data in subgraph.edges(data=True):
-        model_name = data["name"]
-        model_type = getattr(gdm, data["type"])
-        model: gdm.DistributionBranchBase = system.get_component(model_type, model_name)
-        assert issubclass(
-            model.__class__, gdm.DistributionBranchBase
-        ), f"Unsupported model type {model.__class__.__name__}"
-        for bus in model.buses:
-            if bus.name != hv_xfmr_bus:
-                bus.phases = _mapped_phases(mapped_split_phases, bus.phases)
+        model: DistributionBranchBase = system.get_component(data["type"], data["name"])
+        if not issubclass(model.__class__, DistributionBranchBase):
+            raise TypeError(f"Unsupported model type {model.__class__.__name__}")
         model.phases = _mapped_phases(mapped_split_phases, model.phases)
 
 
@@ -153,22 +160,21 @@ def _mapped_phases(mapped_split_phases, phases):
                 mapped_split_phases[phase] if phase in mapped_split_phases else phase
                 for phase in phases
             ]
-            + [gdm.Phase.N]
         )
     )
 
 
 def _fix_transformer_phases(
     mapped_split_phases: dict,
-    xfmr_model: gdm.DistributionTransformer,
-    secondary_wdg_phases: list[list[gdm.Phase]],
+    xfmr_model: DistributionTransformer,
+    secondary_wdg_phases: list[list[Phase]],
 ):
     """method fixes phasing for split phase transformers
 
     Args:
         mapped_split_phases (dict): mapping A,B,C phase to S1/S2 phase
-        xfmr_model (gdm.DistributionTransformer): instance of DistributionTransformer
-        secondary_wdg_phases (list[list[gdm.Phase]]): secondary phases for a distribution transformers
+        xfmr_model (DistributionTransformer): instance of DistributionTransformer
+        secondary_wdg_phases (list[list[Phase]]): secondary phases for a distribution transformers
     """
     wdg_phases = [xfmr_model.winding_phases[0]]
     for phase_list in secondary_wdg_phases:
@@ -192,7 +198,7 @@ def _fix_component_phases(mapped_split_phases: dict, subgraph: Graph, system: Di
         subgraph (Graph): subgraph (downstream) of a split phase dirtribution transformer
         system (DistributionSystem): Instance of an gdm DistributionSystem
     """
-    component_types = [gdm.DistributionLoad, gdm.DistributionCapacitor, gdm.DistributionSolar]
+    component_types = [DistributionLoad, DistributionCapacitor, DistributionSolar]
     for node in subgraph.nodes():
         for component_type in component_types:
             for component in system.get_bus_connected_components(node, component_type) or []:

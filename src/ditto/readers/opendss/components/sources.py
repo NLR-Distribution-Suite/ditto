@@ -1,13 +1,12 @@
 from uuid import uuid4
 
-from gdm.distribution.equipment.phase_voltagesource_equipment import PhaseVoltageSourceEquipment
-
-from gdm import (
-    DistributionBus,
-    # PhaseVoltageSourceEquipment,
-    VoltageSourceEquipment,
+from gdm.distribution.equipment import PhaseVoltageSourceEquipment, VoltageSourceEquipment
+from gdm.distribution.components import (
     DistributionVoltageSource,
+    DistributionBus,
 )
+from gdm.distribution.enums import VoltageTypes
+
 from infrasys.quantities import Angle, Resistance, Voltage
 from gdm.quantities import Reactance
 import opendssdirect as odd
@@ -40,7 +39,7 @@ def _build_voltage_source_equipment(
     soure_name = odd.Vsources.Name().lower()
     buses = odd.CktElement.BusNames()
     num_phase = odd.CktElement.NumPhases()
-    nodes = buses[0].split(".")[1:] if num_phase != 3 else ["1", "2", "3"]
+    nodes = buses[0].split(".")[1:] if "." in buses[0] else ["1", "2", "3"]
     angle = odd.Vsources.AngleDeg()
     angles = [Angle(angle + i * (360.0 / num_phase), "degree") for i in range(num_phase)]
     phase_slacks = []
@@ -53,7 +52,7 @@ def _build_voltage_source_equipment(
 
     for node, angle in zip(nodes, angles):
         voltage = Voltage(odd.Vsources.BasekV() * odd.Vsources.PU(), "kilovolt")
-        phase_slack = PhaseVoltageSourceEquipment(
+        phase_slack = PhaseVoltageSourceEquipment.model_construct(
             name=f"{equipment_uuid}_{node}",
             r0=Resistance(phase_src_properties["r0"], "ohm"),
             r1=Resistance(phase_src_properties["r1"], "ohm"),
@@ -61,6 +60,7 @@ def _build_voltage_source_equipment(
             x1=Reactance(phase_src_properties["x1"], "ohm"),
             angle=angle,
             voltage=voltage / 1.732 if num_phase == 3 else voltage,
+            voltage_type=VoltageTypes.LINE_TO_GROUND,
         )
         phase_slack = get_equipment_from_catalog(
             phase_slack, phase_voltage_source_equipment_catalog
@@ -68,7 +68,7 @@ def _build_voltage_source_equipment(
 
         phase_slacks.append(phase_slack)
 
-    slack_equipment = VoltageSourceEquipment(
+    slack_equipment = VoltageSourceEquipment.model_construct(
         name=str(equipment_uuid),
         sources=phase_slacks,
     )
@@ -87,7 +87,7 @@ def get_voltage_sources(system: System) -> list[DistributionVoltageSource]:
         list[DistributionVoltageSource]: List of DistributionVoltageSource objects
     """
 
-    logger.info("parsing voltage sources components...")
+    logger.debug("parsing voltage sources components...")
     phase_voltage_source_equipment_catalog = {}
     voltage_source_equipment_catalog = {}
     profile_catalog = {}
@@ -105,7 +105,7 @@ def get_voltage_sources(system: System) -> list[DistributionVoltageSource]:
 
         profile_names = [query("yearly"), query("daily"), query("duty")]
         profiles = build_profiles(profile_names, ObjectsWithProfile.SOURCE, profile_catalog)
-        voltage_source = DistributionVoltageSource(
+        voltage_source = DistributionVoltageSource.model_construct(
             name=soure_name,
             bus=system.get_component(DistributionBus, bus1),
             phases=[PHASE_MAPPER[el] for el in nodes],

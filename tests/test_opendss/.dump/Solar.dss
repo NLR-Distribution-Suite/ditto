@@ -1,0 +1,4 @@
+new PVSystem.solar_3 Phases=3 Bus1=bus_3.1.2.3 kV=0.6928000000000001 Irradiance=1.0 Pmpp=1000.0 %Pmpp=100.0 kvar=1.0010000000000001 kVA=4.0 %CutIn=10.0 %CutOut=10.0 %R=1.0 %X=1.0 Yearly=pv_profile VarFollowInverter=True WattPriority=False kvarMaxAbs=4.0
+new PVSystem.solar_9 Phases=3 Bus1=bus_9.1.2.3 kV=0.6928000000000001 Irradiance=1.0 Pmpp=1000.0 %Pmpp=100.0 kvar=1.0010000000000001 kVA=10.0 %CutIn=10.0 %CutOut=10.0 %R=1.0 %X=1.0 Yearly=pv_profile VarFollowInverter=True WattPriority=False kvarMaxAbs=10.0
+new PVSystem.pv_3 Phases=2 Bus1=split_phase_bus_3.1.2 kV=0.20784 Irradiance=1.0 Pmpp=4.0 %Pmpp=100.0 kvar=4.0 kVA=3.8 %CutIn=10.0 %CutOut=10.0 %R=1.0 %X=1.0 Yearly=pv_profile kvarMaxAbs=3.8
+new PVSystem.pv_9 Phases=2 Bus1=split_phase_bus_9.1.2 kV=0.20784 Irradiance=1.0 Pmpp=10.0 %Pmpp=100.0 kvar=10.0 kVA=3.8 %CutIn=10.0 %CutOut=10.0 %R=1.0 %X=1.0 Yearly=pv_profile kvarMaxAbs=3.8

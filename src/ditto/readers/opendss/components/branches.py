@@ -5,16 +5,15 @@ from infrasys import System, Component
 from infrasys.quantities import Time
 
 from gdm.quantities import (
-    ResistancePULength,
     CapacitancePULength,
+    ResistancePULength,
     ReactancePULength,
     Distance,
     Current,
 )
 
-from gdm.distribution.curve import TimeCurrentCurve
-
-from gdm import (
+from gdm.distribution.common import TimeCurrentCurve, ThermalLimitSet
+from gdm.distribution.equipment import (
     MatrixImpedanceRecloserEquipment,
     MatrixImpedanceSwitchEquipment,
     MatrixImpedanceBranchEquipment,
@@ -22,16 +21,16 @@ from gdm import (
     ConcentricCableEquipment,
     GeometryBranchEquipment,
     BareConductorEquipment,
+)
+from gdm.distribution.components import (
     MatrixImpedanceSwitch,
     MatrixImpedanceBranch,
     MatrixImpedanceFuse,
     DistributionBus,
-    ThermalLimitSet,
     GeometryBranch,
-    Phase,
 )
+from gdm.distribution.enums import Phase
 
-from infrasys.quantities import Distance
 import opendssdirect as odd
 from loguru import logger
 import numpy as np
@@ -41,6 +40,7 @@ from ditto.readers.opendss.common import (
     query_model_data,
     PHASE_MAPPER,
     UNIT_MAPPER,
+    get_unit_index,
     hash_model,
 )
 
@@ -63,7 +63,7 @@ def get_geometry_branch_equipments(
         dict[str, int]: mapping of line geometries names to GeometryBranchEquipment hash
     """
 
-    logger.info("parsing geometry branch equipment...")
+    logger.debug("parsing geometry branch equipment...")
 
     mapped_geometry = {}
     geometry_branch_equipment_catalog = {}
@@ -73,23 +73,21 @@ def get_geometry_branch_equipments(
         geometry_name = odd.LineGeometries.Name().lower()
         x_coordinates = []
         y_coordinates = []
-        units = UNIT_MAPPER[odd.LineGeometries.Units()[0].value]
+        units = UNIT_MAPPER[get_unit_index(odd.LineGeometries.Units()[0])]
         odd.Text.Command(f"? LineGeometry.{geometry_name}.wires")
         wires = odd.Text.Result().strip("[]").split(", ")
         model_name = odd.Element.Name().lower().split(".")[1]
         conductor_elements = []
 
         for i, wire in enumerate(wires):
-            odd.Text.Command(f"LineGeometry.{geometry_name}.cond={i+1}")
+            odd.Text.Command(f"LineGeometry.{geometry_name}.cond={i + 1}")
             odd.Text.Command(f"? LineGeometry.{geometry_name}.h")
             y_coordinates.append(float(odd.Text.Result()))
             odd.Text.Command(f"? LineGeometry.{geometry_name}.x")
             x_coordinates.append(float(odd.Text.Result()))
 
             equipments = list(
-                system.get_components(
-                    BareConductorEquipment, filter_func=lambda x: x.name == wire
-                )
+                system.get_components(BareConductorEquipment, filter_func=lambda x: x.name == wire)
             )
             if not equipments:
                 equipments = list(
@@ -100,7 +98,7 @@ def get_geometry_branch_equipments(
             equipment = equipments[0]
             conductor_elements.append(equipment)
 
-        geometry_branch_equipment = GeometryBranchEquipment(
+        geometry_branch_equipment = GeometryBranchEquipment.model_construct(
             name=model_name,
             conductors=conductor_elements,
             horizontal_positions=Distance(x_coordinates, units),
@@ -120,9 +118,7 @@ def _build_matrix_branch(
     model_type: str,
     matrix_branch_equipments_catalog: dict[int, Component],
     thermal_limit_catalog: dict[int, Component],
-    model_class: (
-        type[MatrixImpedanceSwitchEquipment] | type[MatrixImpedanceBranchEquipment]
-    ),
+    model_class: (type[MatrixImpedanceSwitchEquipment] | type[MatrixImpedanceBranchEquipment]),
     fuse: dict,
     recloser: dict,
 ) -> MatrixImpedanceBranchEquipment:
@@ -145,30 +141,12 @@ def _build_matrix_branch(
     module: odd.LineCodes | odd.Lines = getattr(odd, model_type)
 
     num_phase = module.Phases()
-    thermal_limits = ThermalLimitSet(
-        limit_type="max",
-        value=Current(module.EmergAmps(), "ampere"),
-    )
+    length_units = UNIT_MAPPER[get_unit_index(module.Units())]
 
-    thermal_limits = get_equipment_from_catalog(thermal_limits, thermal_limit_catalog)
-
-    length_units = UNIT_MAPPER[module.Units().value]
-
-    r_matrix = (
-        module.RMatrix()
-        if model_type == MatrixBranchTypes.LINE.value
-        else module.Rmatrix()
-    )
-    x_matrix = (
-        module.XMatrix()
-        if model_type == MatrixBranchTypes.LINE.value
-        else module.Xmatrix()
-    )
-    c_matrix = (
-        module.CMatrix()
-        if model_type == MatrixBranchTypes.LINE.value
-        else module.Cmatrix()
-    )
+    r_matrix = module.RMatrix() if model_type == MatrixBranchTypes.LINE.value else module.Rmatrix()
+    x_matrix = module.XMatrix() if model_type == MatrixBranchTypes.LINE.value else module.Xmatrix()
+    c_matrix = module.CMatrix() if model_type == MatrixBranchTypes.LINE.value else module.Cmatrix()
+    amps = module.NormAmps() if module.NormAmps() else 0.001
     matrix_branch_dict = {
         "name": equipment_uuid,
         "r_matrix": ResistancePULength(
@@ -183,8 +161,7 @@ def _build_matrix_branch(
             np.reshape(np.array(c_matrix), (num_phase, num_phase)),
             f"nanofarad/{length_units}",
         ),
-        "ampacity": Current(module.NormAmps(), "ampere"),
-        "loading_limit": thermal_limits,
+        "ampacity": Current(amps, "ampere"),
     }
     if model_class == MatrixImpedanceSwitchEquipment:
         # TODO: implement switch controller logic here
@@ -194,7 +171,7 @@ def _build_matrix_branch(
         matrix_branch_dict.update(fuse)
     elif model_class == MatrixImpedanceRecloserEquipment:
         matrix_branch_dict.update(recloser)
-    matrix_branch_equipment = model_class(**matrix_branch_dict)
+    matrix_branch_equipment = model_class.model_construct(**matrix_branch_dict)
     matrix_branch_equipment = get_equipment_from_catalog(
         matrix_branch_equipment, matrix_branch_equipments_catalog, model_class.__name__
     )
@@ -215,7 +192,7 @@ def get_matrix_branch_equipments() -> (
         dict[int, ThermalLimitSet]: mapping of model hash to ThermalLimitSet instance
     """
 
-    logger.info("parsing matrix branch equipment...")
+    logger.debug("parsing matrix branch equipment...")
     reclosers = get_reclosers()
     fuses = get_fuses()
     matrix_branch_equipments_catalog = {
@@ -247,10 +224,7 @@ def get_matrix_branch_equipments() -> (
                 ):
                     recloser = reclosers[odd.Lines.Name().lower()]
                     model_type = MatrixImpedanceRecloserEquipment
-                elif (
-                    odd_model_type == MatrixBranchTypes.LINE.value
-                    and odd.Lines.IsSwitch()
-                ):
+                elif odd_model_type == MatrixBranchTypes.LINE.value and odd.Lines.IsSwitch():
                     model_type = MatrixImpedanceSwitchEquipment
                 else:
                     model_type = MatrixImpedanceBranchEquipment
@@ -286,7 +260,7 @@ def get_branches(
         tuple[list[MatrixImpedanceBranch | GeometryBranch]]: Returns a list of system branches
     """
 
-    logger.info("parsing branch components...")
+    logger.debug("parsing branch components...")
     reclosers = get_reclosers()
     fuses = get_fuses()
     branches = []
@@ -313,16 +287,14 @@ def get_branches(
                     bus_obj = system.get_component(DistributionBus, bus)
                     bus_obj.phases.append(Phase.N)
 
-            geometry_branch = GeometryBranch(
+            geometry_branch = GeometryBranch.model_construct(
                 name=odd.Lines.Name().lower(),
                 equipment=geometry_branch_equipment,
                 buses=[
                     system.get_component(DistributionBus, bus1),
                     system.get_component(DistributionBus, bus2),
                 ],
-                length=Distance(
-                    odd.Lines.Length(), UNIT_MAPPER[odd.Lines.Units()]
-                ),
+                length=Distance(odd.Lines.Length(), UNIT_MAPPER[odd.Lines.Units()]),
                 phases=[PHASE_MAPPER[node] for node in nodes],
             )
             branches.append(geometry_branch)
@@ -360,21 +332,16 @@ def get_branches(
                     system.get_component(DistributionBus, bus1),
                     system.get_component(DistributionBus, bus2),
                 ],
-                "length": Distance(
-                    odd.Lines.Length(), UNIT_MAPPER[odd.Lines.Units()]
-                ),
+                "length": Distance(odd.Lines.Length(), UNIT_MAPPER[odd.Lines.Units()]),
                 "phases": [PHASE_MAPPER[node] for node in nodes],
                 "equipment": equipment,
             }
             if model_class in [MatrixImpedanceSwitch, MatrixImpedanceFuse]:
                 model_dict["is_closed"] = [
-                    not (
-                        odd.CktElement.IsOpen(1, node + 1)
-                        or odd.CktElement.IsOpen(2, node + 1)
-                    )
+                    not (odd.CktElement.IsOpen(1, node + 1) or odd.CktElement.IsOpen(2, node + 1))
                     for node in range(len(nodes))
                 ]
-            matrix_branch = model_class(**model_dict)
+            matrix_branch = model_class.model_construct(**model_dict)
             branches.append(matrix_branch)
         flag = odd.Lines.Next()
 

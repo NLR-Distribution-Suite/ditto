@@ -1,0 +1,16 @@
+! Last saved by AltDSS/DSS C-API Library version 0.14.5 revision 87d85c2622c8281b92255335bc7c09b11191b21d based on OpenDSS SVN 3723 [FPC 3.2.2] (64-bit build) MVMULT INCREMENTAL_Y CONTEXT_API PM 20240329033829 on 2025-08-21T15:24:41.298Z
+Clear
+Set DefaultBaseFreq=60
+New Circuit.test
+
+Set EarthModel=Deri
+
+Redirect LoadShape.dss
+Redirect GrowthShape.dss
+Redirect TCC_Curve.dss
+Redirect Spectrum.dss
+Redirect Vsource.dss
+Redirect Line.dss
+MakeBusList
+Redirect BusVoltageBases.dss  ! set voltage bases
+BusCoords BusCoords.dss

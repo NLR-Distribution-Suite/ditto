@@ -3,21 +3,24 @@ from gdm.distribution.enums import Phase
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
 
+from gdm.distribution import DistributionSystem
+from infrasys import Component
+
 
 class DistributionBranchMapper(OpenDSSMapper):
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, model: Component, system: DistributionSystem):
+        super().__init__(model, system)
 
     altdss_name = "Line_Common"
     altdss_composition_name = "Line"
     opendss_file = OpenDSSFileTypes.LINES_FILE.value
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name.replace(" ","_").replace(".","_")
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_buses(self):
-        self.opendss_dict["Bus1"] = self.model.buses[0].name.replace(" ","_").replace(".","_")
-        self.opendss_dict["Bus2"] = self.model.buses[1].name.replace(" ","_").replace(".","_")
+        self.opendss_dict["Bus1"] = self.get_opendss_safe_name(self.model.buses[0].name)
+        self.opendss_dict["Bus2"] = self.get_opendss_safe_name(self.model.buses[1].name)
         for phase in self.model.phases:
             if phase != Phase.N:
                 self.opendss_dict["Bus1"] += self.phase_map[phase]
@@ -38,6 +41,5 @@ class DistributionBranchMapper(OpenDSSMapper):
         # TODO: remove from GDM?
 
         live_phases = [phase for phase in self.model.phases if phase != Phase.N]
-
         self.opendss_dict["Phases"] = len(live_phases)
         pass

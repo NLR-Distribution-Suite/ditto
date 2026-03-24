@@ -1,0 +1,2 @@
+New "Line.line_1" R1=0.058 X1=0.1206 R0=0.058 X0=0.1206 C1=3.4 C0=3.4 Bus1=bus_1.1 Bus2=bus_2.2 Phases=1
+New "Line.line_2" R1=0.058 X1=0.1206 R0=0.058 X0=0.1206 C1=3.4 C0=3.4 Bus1=bus_1.1 Bus2=bus_2.2 Phases=1 Length=-10

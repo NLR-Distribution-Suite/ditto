@@ -1,0 +1,42 @@
+SetBusXY bus_0 30.0 20.0
+SetkVBase bus_0 kVLL=0.4
+SetBusXY bus_1 30.0 20.0
+SetkVBase bus_1 kVLL=0.4
+SetBusXY bus_2 30.0 20.0
+SetkVBase bus_2 kVLL=0.4
+SetBusXY bus_3 30.0 20.0
+SetkVBase bus_3 kVLL=0.4
+SetBusXY bus_4 30.0 20.0
+SetkVBase bus_4 kVLL=0.4
+SetBusXY bus_5 30.0 20.0
+SetkVBase bus_5 kVLL=0.4
+SetBusXY bus_6 30.0 20.0
+SetkVBase bus_6 kVLL=0.4
+SetBusXY bus_7 30.0 20.0
+SetkVBase bus_7 kVLL=0.4
+SetBusXY bus_8 30.0 20.0
+SetkVBase bus_8 kVLL=0.4
+SetBusXY bus_9 30.0 20.0
+SetkVBase bus_9 kVLL=0.4
+SetBusXY src_bus 30.0 20.0
+SetkVBase src_bus kVLL=12.47
+SetBusXY split_phase_bus_0 30.0 20.0
+SetkVBase split_phase_bus_0 kVLN=0.12
+SetBusXY split_phase_bus_1 30.0 20.0
+SetkVBase split_phase_bus_1 kVLN=0.12
+SetBusXY split_phase_bus_2 30.0 20.0
+SetkVBase split_phase_bus_2 kVLN=0.12
+SetBusXY split_phase_bus_3 30.0 20.0
+SetkVBase split_phase_bus_3 kVLN=0.12
+SetBusXY split_phase_bus_4 30.0 20.0
+SetkVBase split_phase_bus_4 kVLN=0.12
+SetBusXY split_phase_bus_5 30.0 20.0
+SetkVBase split_phase_bus_5 kVLN=0.12
+SetBusXY split_phase_bus_6 30.0 20.0
+SetkVBase split_phase_bus_6 kVLN=0.12
+SetBusXY split_phase_bus_7 30.0 20.0
+SetkVBase split_phase_bus_7 kVLN=0.12
+SetBusXY split_phase_bus_8 30.0 20.0
+SetkVBase split_phase_bus_8 kVLN=0.12
+SetBusXY split_phase_bus_9 30.0 20.0
+SetkVBase split_phase_bus_9 kVLN=0.12

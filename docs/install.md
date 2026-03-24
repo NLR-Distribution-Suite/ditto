@@ -1,32 +1,43 @@
 # Installation
 
-DiTTo is the Distribution Transformation Tool. It is an open source tool to convert and modify electrical distribution system models. The most common domain of electrical distribution systems is from substations to customers.
+DiTTo requires **Python 3.11 or later**.
+
+## From PyPI
 
 ```bash
-pip install ditto
+pip install nrel-ditto
 ```
 
-This will install the basic version of ditto with limited dependencies. Because ditto supports conversion between many multiple formats, dependencies can be specified during installation For example:
+This installs DiTTo with its core dependencies (OpenDSS, GDM, rdflib, etc.).
 
-When extending documentation, additional dependencies are required. These can be installed using the following command.
+## From Source (Development)
 
 ```bash
-pip install ditto[docs]
+git clone https://github.com/NLR-Distribution-Suite/ditto.git
+cd ditto
+pip install -e ".[dev]"
 ```
 
-If you're using a virtual environment, you will want to activate it first before running the `pip install` command. Virtual environments can be activated using the following commands:
+## Optional Extras
 
-On Windows:
+DiTTo defines optional dependency groups that can be installed as needed:
+
+| Extra | Purpose | Command |
+|-------|---------|--------|
+| `dev` | Testing & linting (pytest, ruff) | `pip install nrel-ditto[dev]` |
+| `doc` | Documentation builds (Sphinx, MyST) | `pip install nrel-ditto[doc]` |
+
+## Verifying the Installation
+
+After installation, verify that the CLI is available:
 
 ```bash
-venv\Scripts\activate
+ditto_cli --help
 ```
 
-On macOS and Linux:
+You can also list the available readers and writers:
 
 ```bash
-source venv/bin/activate
+ditto_cli list-readers
+ditto_cli list-writers
 ```
-
-After activating the virtual environment, you can then proceed to install the package using `pip`.
-Remember to replace `venv` with the name of your virtual environment if it's different.

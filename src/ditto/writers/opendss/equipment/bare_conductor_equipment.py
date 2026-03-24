@@ -1,17 +1,20 @@
+from gdm.distribution import DistributionSystem
+from infrasys import Component
+
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
 
 
 class BareConductorEquipmentMapper(OpenDSSMapper):
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, model: Component, system: DistributionSystem):
+        super().__init__(model, system)
 
     altdss_name = "WireData"
     altdss_composition_name = None
     opendss_file = OpenDSSFileTypes.WIRES_FILE.value
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name.replace(" ","_").replace(".","_")
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_conductor_diameter(self):
         radius = self.model.conductor_diameter.magnitude / 2
@@ -50,7 +53,3 @@ class BareConductorEquipmentMapper(OpenDSSMapper):
     def map_emergency_ampacity(self):
         ampacity_amps = self.model.ampacity.to("ampere")
         self.opendss_dict["EmergAmps"] = ampacity_amps.magnitude
-
-    def map_loading_limit(self):
-        # Not mapped in OpenDSS
-        pass
