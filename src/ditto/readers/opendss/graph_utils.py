@@ -145,12 +145,16 @@ def _fix_bus_phases(
         if u != hv_xfmr_bus:
             bus = system.get_component(DistributionBus, u)
             bus.phases = _mapped_phases(mapped_split_phases, bus.phases)
+            if Phase.N in bus.phases:
+                bus.phases.remove(Phase.N)
 
     for _, _, data in subgraph.edges(data=True):
         model: DistributionBranchBase = system.get_component(data["type"], data["name"])
         if not issubclass(model.__class__, DistributionBranchBase):
             raise TypeError(f"Unsupported model type {model.__class__.__name__}")
         model.phases = _mapped_phases(mapped_split_phases, model.phases)
+        if Phase.N in model.phases:
+            model.phases.remove(Phase.N)
 
 
 def _mapped_phases(mapped_split_phases, phases):
