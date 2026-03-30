@@ -1,10 +1,12 @@
+from gdm.distribution import DistributionSystem
+
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
 
 
 class ConcentricCableEquipmentMapper(OpenDSSMapper):
-    def __init__(self, model):
-        super().__init__(model)
+    def __init__(self, model, system: DistributionSystem):
+        super().__init__(model, system)
 
     altdss_name = "CNData"
     altdss_composition_name = None
