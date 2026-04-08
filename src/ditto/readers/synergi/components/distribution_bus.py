@@ -1,6 +1,7 @@
 from infrasys.location import Location
 from gdm.distribution.components.distribution_bus import DistributionBus
-from gdm import VoltageTypes, Phase, PositiveVoltage
+from gdm.distribution.enums import VoltageTypes, Phase
+from gdm.quantities import Voltage
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
 
 class DistributionBusMapper(SynergiMapper):
@@ -14,13 +15,13 @@ class DistributionBusMapper(SynergiMapper):
     def parse(self, row, unit_type, section_id_sections, from_node_sections, to_node_sections):
         name = self.map_name(row)
         coordinate = self.map_coordinate(row)
-        nominal_voltage = self.map_nominal_voltage(row)
+        rated_voltage = self.map_nominal_voltage(row)
         phases = self.map_phases(row, from_node_sections, to_node_sections)
         voltage_limits = self.map_voltagelimits(row)
         voltage_type = self.map_voltage_type(row)
         return DistributionBus(name=name,
                                coordinate=coordinate,
-                               nominal_voltage=nominal_voltage,
+                               rated_voltage=rated_voltage,
                                phases=phases,
                                voltagelimits=voltage_limits,
                                voltage_type=voltage_type)
@@ -38,7 +39,7 @@ class DistributionBusMapper(SynergiMapper):
 
     # Nominal voltage is only defined by transformers
     def map_nominal_voltage(self, row):
-        return PositiveVoltage(12.47, "kilovolts") 
+        return Voltage(12.47, "kilovolts")
 
     def map_phases(self, row, from_node_sections, to_node_sections):
         node_id = row["NodeId"]

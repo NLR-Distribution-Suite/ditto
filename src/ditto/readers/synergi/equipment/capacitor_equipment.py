@@ -1,8 +1,9 @@
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
-from gdm.quantities import PositiveReactivePower, PositiveResistance, PositiveReactance
+from gdm.quantities import ReactivePower, Resistance, Reactance
 from gdm.distribution.equipment.phase_capacitor_equipment import PhaseCapacitorEquipment
 from gdm.distribution.equipment.capacitor_equipment import CapacitorEquipment
-from gdm import ConnectionType
+from gdm.distribution.enums import ConnectionType, VoltageTypes
+from gdm.quantities import Voltage
 
 class CapacitorEquipmentMapper(SynergiMapper):
     def __init__(self, system):
@@ -15,13 +16,23 @@ class CapacitorEquipmentMapper(SynergiMapper):
         name = self.map_name(row)
         phase_capacitors = self.map_phase_capacitors(row)
         connection_type = self.map_connection_type(row)
+        rated_voltage = self.map_rated_voltage(row)
+        voltage_type = self.map_voltage_type(row)
         return CapacitorEquipment(name=name,
                                   phase_capacitors=phase_capacitors,
-                                  connection_type=connection_type)
+                                  connection_type=connection_type,
+                                  rated_voltage=rated_voltage,
+                                  voltage_type=voltage_type)
 
 
     def map_name(self, row):
-        return row["UniqueDeviceId"]
+        return str(row["UniqueDeviceId"])
+
+    def map_rated_voltage(self, row):
+        return Voltage(float(row["RatedKv"]), "kilovolt")
+
+    def map_voltage_type(self, row):
+        return VoltageTypes.LINE_TO_LINE
 
     def map_phase_capacitors(self, row):
         phase_capacitors = []
@@ -57,25 +68,25 @@ class PhaseCapacitorEquipmentMapper(SynergiMapper):
         return PhaseCapacitorEquipment(name = name,
                                        resistance=resistance,
                                        reactance=reactance,
-                                       rated_capacity=rated_capacity,
+                                       rated_reactive_power=rated_capacity,
                                        num_banks_on=num_banks_on,
                                        num_banks=num_banks)
 
     def map_name(self, row, phase):
         if phase == 1:
-            return row["UniqueDeviceId"] + "_A"
+            return str(row["UniqueDeviceId"]) + "_A"
         if phase == 2:
-            return row["UniqueDeviceId"] + "_B"
+            return str(row["UniqueDeviceId"]) + "_B"
         if phase == 3:
-            return row["UniqueDeviceId"] + "_C"
+            return str(row["UniqueDeviceId"]) + "_C"
 
     # Resistance and Reactance not included for capacitors
     def map_resistance(self, row, phase):
-        return PositiveResistance(0,'ohm')
+        return Resistance(0,'ohm')
 
     # Resistance and Reactance not included for capacitors
     def map_reactance(self, row, phase):
-        return PositiveReactance(0,'ohm')
+        return Reactance(0,'ohm')
 
     # TODO: This doesn't make sense. We should have fixed and switched values
     def map_rated_capacity(self, row, phase):
@@ -87,7 +98,7 @@ class PhaseCapacitorEquipmentMapper(SynergiMapper):
         if row[activated_key] == 1:
             switched_key = f"Module{phase}KvarPerPhase"
             total_capacity += row[switched_key]
-        return PositiveReactivePower(total_capacity,'kilovar')
+        return ReactivePower(total_capacity,'kilovar')
 
     # TODO: This doesn't make sense. This should indicate if the bank is switched
     def map_num_banks_on(self, row, phase):

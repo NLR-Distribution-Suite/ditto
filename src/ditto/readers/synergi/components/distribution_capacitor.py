@@ -2,7 +2,7 @@ from ditto.readers.synergi.synergi_mapper import SynergiMapper
 from ditto.readers.synergi.equipment.capacitor_equipment import CapacitorEquipmentMapper
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.components.distribution_capacitor import DistributionCapacitor
-from gdm import Phase
+from gdm.distribution.enums import Phase
 from loguru import logger
 
 class DistributionCapacitorMapper(SynergiMapper):
@@ -25,7 +25,7 @@ class DistributionCapacitorMapper(SynergiMapper):
                                       equipment=equipment)
 
     def map_name(self, row):
-        return row["UniqueDeviceId"]
+        return str(row["UniqueDeviceId"])
 
     def map_phases(self, row):
         phase_info = row["ConnectedPhases"]

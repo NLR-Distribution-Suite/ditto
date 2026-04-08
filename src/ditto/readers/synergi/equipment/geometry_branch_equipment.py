@@ -3,7 +3,6 @@ from gdm.distribution.equipment.geometry_branch_equipment import GeometryBranchE
 from gdm.distribution.equipment.bare_conductor_equipment import BareConductorEquipment
 from gdm.distribution.equipment.concentric_cable_equipment import ConcentricCableEquipment
 from gdm.quantities import Distance
-from gdm import PositiveDistance
 from ditto.readers.synergi.length_units import length_units
 from loguru import logger
 
@@ -52,9 +51,8 @@ class GeometryBranchEquipmentMapper(SynergiMapper):
                 conductors.append(bare_equipment)
             elif concentric_equipment is not None:    
                 conductors.append(concentric_equipment)
-            else:    
+            else:
                 logger.warning(f"Conductor {conductor} not found. Skipping")
-                import pdb;pdb.set_trace()
 
         return conductors
 

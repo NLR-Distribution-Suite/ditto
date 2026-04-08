@@ -1,7 +1,7 @@
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
 from gdm.distribution.equipment.load_equipment import LoadEquipment
 from gdm.distribution.equipment.phase_load_equipment import PhaseLoadEquipment
-from gdm import ConnectionType
+from gdm.distribution.enums import ConnectionType
 from gdm.quantities import ActivePower, ReactivePower
 
 class LoadEquipmentMapper(SynergiMapper):
@@ -98,9 +98,9 @@ class PhaseLoadEquipmentMapper(SynergiMapper):
         return 0
 
     def map_num_customers(self, row, phase):
-        customers = row[f"Phase{phase}Customers"]
+        customers = int(round(row[f"Phase{phase}Customers"]))
         if customers == 0:
             customers = 1
-        return customers    
+        return customers
 
 

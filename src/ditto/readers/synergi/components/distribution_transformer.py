@@ -3,7 +3,7 @@ from gdm.distribution.equipment.distribution_transformer_equipment import Distri
 from gdm.distribution.components.distribution_transformer import DistributionTransformer
 from gdm.distribution.components.distribution_bus import DistributionBus
 
-from gdm import Phase, ConnectionType
+from gdm.distribution.enums import Phase, ConnectionType
 from loguru import logger
 
 class DistributionTransformerMapper(SynergiMapper):
@@ -20,11 +20,11 @@ class DistributionTransformerMapper(SynergiMapper):
         equipment = self.map_equipment(row)
 
         # Set the voltages for the buses
-        voltage_1 = round(equipment.windings[0].nominal_voltage,5)
-        voltage_2 = round(equipment.windings[1].nominal_voltage,5)
+        voltage_1 = round(equipment.windings[0].rated_voltage,5)
+        voltage_2 = round(equipment.windings[1].rated_voltage,5)
 
-        buses[0].nominal_voltage = voltage_1
-        buses[1].nominal_voltage = voltage_2
+        buses[0].rated_voltage = voltage_1
+        buses[1].rated_voltage = voltage_2
 
         return DistributionTransformer(name=name,
                                        buses=buses,

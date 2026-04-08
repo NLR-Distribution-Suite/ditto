@@ -1,6 +1,7 @@
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
 from gdm.distribution.equipment.distribution_transformer_equipment import WindingEquipment
-from gdm import VoltageTypes, ConnectionType, PositiveVoltage
+from gdm.distribution.enums import VoltageTypes, ConnectionType
+from gdm.quantities import Voltage
 
 class WindingEquipmentMapper(SynergiMapper):
     def __init__(self, system):
@@ -13,7 +14,7 @@ class WindingEquipmentMapper(SynergiMapper):
         name = self.map_name(row, winding_number)
         resistance = self.map_resistance(row, winding_number)
         is_grounded = self.map_is_grounded(row, winding_number)
-        nominal_voltage = self.map_nominal_voltage(row, winding_number)
+        rated_voltage = self.map_nominal_voltage(row, winding_number)
         voltage_type = self.map_voltage_type(row)
         rated_power = self.map_rated_power(row)
         num_phases = self.num_phases(row)
@@ -26,7 +27,7 @@ class WindingEquipmentMapper(SynergiMapper):
         return WindingEquipment(name=name,
                                 resistance=resistance,
                                 is_grounded=is_grounded,
-                                nominal_voltage=nominal_voltage,
+                                rated_voltage=rated_voltage,
                                 voltage_type=voltage_type,
                                 rated_power=rated_power,
                                 num_phases=num_phases,
@@ -56,9 +57,9 @@ class WindingEquipmentMapper(SynergiMapper):
 
     def map_nominal_voltage(self, row, winding_number):
         if winding_number == 1:
-            return PositiveVoltage(row["HighSideRatedKv"], "kilovolt")
+            return Voltage(row["HighSideRatedKv"], "kilovolt")
         else:
-            return PositiveVoltage(row["LowSideRatedKv"], "kilovolt")
+            return Voltage(row["LowSideRatedKv"], "kilovolt")
 
     def map_voltage_type(self, row):
         return VoltageTypes.LINE_TO_LINE

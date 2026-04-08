@@ -2,7 +2,7 @@ from ditto.readers.synergi.synergi_mapper import SynergiMapper
 from ditto.readers.synergi.equipment.load_equipment import LoadEquipmentMapper
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.components.distribution_load import DistributionLoad
-from gdm import Phase
+from gdm.distribution.enums import Phase
 from loguru import logger
 
 class DistributionLoadMapper(SynergiMapper):

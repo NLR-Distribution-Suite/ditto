@@ -2,7 +2,7 @@ from gdm.distribution.components.base.distribution_component_base import Distrib
 from gdm.distribution.equipment.geometry_branch_equipment import GeometryBranchEquipment
 from gdm.distribution.equipment.bare_conductor_equipment import BareConductorEquipment
 from gdm.distribution.equipment.concentric_cable_equipment import ConcentricCableEquipment
-from gdm import DistributionSystem
+from gdm.distribution import DistributionSystem
 from gdm.quantities import Distance
 from ditto.readers.reader import AbstractReader
 from ditto.readers.synergi.utils import read_synergi_data, download_mdbtools
@@ -226,13 +226,19 @@ class Reader(AbstractReader):
             for idx,row in table_data.iterrows():
                 mapper_name = component_type+ "Mapper"
                 if component_type == "GeometryBranchEquipment":
-                    model_entries = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections, geometry_conductors)
-                    for model_entry in model_entries:
-                        components.append(model_entry)
+                    try:
+                        model_entries = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections, geometry_conductors)
+                        for model_entry in model_entries:
+                            components.append(model_entry)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse GeometryBranchEquipment row {idx}: {e}")
                 else:
-                    model_entry = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections)
-                    if model_entry is not None:
-                       components.append(model_entry)
+                    try:
+                        model_entry = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections)
+                        if model_entry is not None:
+                            components.append(model_entry)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse {component_type} row {idx}: {e}")
             self.system.add_components(*components)
 
     def get_system(self) -> DistributionSystem:

@@ -4,7 +4,8 @@ from gdm.distribution.equipment.geometry_branch_equipment import GeometryBranchE
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.equipment.bare_conductor_equipment import BareConductorEquipment
 from gdm.distribution.equipment.concentric_cable_equipment import ConcentricCableEquipment
-from gdm import PositiveDistance, Phase
+from gdm.distribution.enums import Phase
+from gdm.quantities import Distance
 from loguru import logger
 from ditto.readers.synergi.length_units import length_units
 
@@ -27,8 +28,8 @@ class GeometryBranchMapper(SynergiMapper):
                                        length=length,
                                        phases=phases,
                                        equipment=equipment)
-        except:
-            import pdb;pdb.set_trace()
+        except Exception as e:
+            logger.warning(f"Failed to parse geometry branch: {e}")
 
     def map_name(self, row):
         return row["SectionId"]
@@ -59,7 +60,7 @@ class GeometryBranchMapper(SynergiMapper):
     def map_length(self, row, unit_type):
         unit = length_units[unit_type]["MUL"]
         length = row["SectionLength_MUL"]
-        return PositiveDistance(length, unit).to("m")
+        return Distance(length, unit).to("m")
 
     def map_phases(self, row):
         input_phases = row["SectionPhases"].replace(" ","")
@@ -200,9 +201,8 @@ class GeometryBranchMapper(SynergiMapper):
                     conductors.append(bare_equipment)
                 elif concentric_equipment is not None:    
                     conductors.append(concentric_equipment)
-                else:    
+                else:
                     logger.warning(f"Conductor {conductor} not found. Skipping")
-                    import pdb;pdb.set_trace()
 
         return conductors   
 

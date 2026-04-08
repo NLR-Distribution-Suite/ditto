@@ -2,7 +2,8 @@ from ditto.readers.synergi.synergi_mapper import SynergiMapper
 from ditto.readers.synergi.equipment.winding_equipment import WindingEquipmentMapper
 from gdm.distribution.equipment.distribution_transformer_equipment import DistributionTransformerEquipment
 
-from gdm import Phase, ConnectionType, SequencePair, PositiveReactance
+from gdm.distribution.enums import Phase, ConnectionType
+from gdm.distribution.common import SequencePair
 
 
 
