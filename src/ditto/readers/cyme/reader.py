@@ -374,8 +374,9 @@ class Reader(AbstractReader):
     def serialize_parallel_branches(self):
         """
         Detect parallel branches and serialize them by inserting new buses and copying components as needed.
-        Non-transformer branches are chained in series before the transformer if they are in parallel with a transformer.
-        Components of the same type are left in parallel, but renamed to avoid duplicate names.
+        All non-transformer parallel branches are chained in series. Only transformers may remain in parallel.
+        After serialization, validates that no non-transformer parallel edges remain and that parallel
+        transformers do not overlap on phases.
         """
 
         parallel_components = self._get_parallel_components()
@@ -428,18 +429,26 @@ class Reader(AbstractReader):
                     comp.buses[1] = new_bus
                     non_transformers[j + 1].buses[0] = new_bus
 
-    def _get_parallel_components(self) -> list[list[Component]]:
-        G = self.system.get_undirected_graph()
+        self._validate_parallel_branches()
 
+    def _get_parallel_edges(self):
+        G = self.system.get_undirected_graph()
         edges = defaultdict(list)
         for u, v, key in G.edges(keys=True):
             edge_pair = tuple(sorted((u, v)))
             edges[edge_pair].append(key)
+        return G, {edge: keys for edge, keys in edges.items() if len(keys) > 1}
+
+    def _get_parallel_components(self) -> list[list[Component]]:
+        G, parallel_edges = self._get_parallel_edges()
 
         parallel_edges = {
             edge: keys
-            for edge, keys in edges.items()
-            if len(set(G.get_edge_data(edge[0], edge[1], key)["type"] for key in keys)) > 1
+            for edge, keys in parallel_edges.items()
+            if not all(
+                G.get_edge_data(edge[0], edge[1], key)["type"] == DistributionTransformer
+                for key in keys
+            )
         }
 
         parallel_components = list()
@@ -477,3 +486,41 @@ class Reader(AbstractReader):
         ]
 
         return transformers, non_transformers
+
+    def _validate_parallel_branches(self):
+        G, parallel_edges = self._get_parallel_edges()
+
+        for edge, keys in parallel_edges.items():
+            transformers = []
+            non_transformer_names = []
+            for key in keys:
+                edge_data = G.get_edge_data(edge[0], edge[1], key)
+                if edge_data["type"] == DistributionTransformer:
+                    transformers.append(
+                        self.system.get_component(DistributionTransformer, edge_data["name"])
+                    )
+                else:
+                    non_transformer_names.append(edge_data["name"])
+
+            if non_transformer_names:
+                raise ValueError(
+                    f"Non-transformer components remain in parallel between buses "
+                    f"{edge[0]} and {edge[1]}: {non_transformer_names}"
+                )
+
+            if len(transformers) <= 1:
+                continue
+
+            num_windings = min(len(t.winding_phases) for t in transformers)
+            for winding_idx in range(num_windings):
+                seen_phases = {}
+                for t in transformers:
+                    for phase in t.winding_phases[winding_idx]:
+                        if phase in seen_phases:
+                            raise ValueError(
+                                f"Parallel transformers between buses {edge[0]} and {edge[1]} "
+                                f"have overlapping phase {phase} on winding {winding_idx}: "
+                                f"{seen_phases[phase]} and {t.name}. "
+                                f"This is not supported by serialize_parallel_branches."
+                            )
+                        seen_phases[phase] = t.name
