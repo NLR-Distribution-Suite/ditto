@@ -23,7 +23,7 @@ jobs:
         run: |
           pytest --cov=src/ditto --cov-report=xml --cov-report=term .
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: NLR-Distribution-Suite/ditto
