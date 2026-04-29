@@ -20,16 +20,60 @@ class DistributionTransformerMapper(CimMapper):
         )
 
     def map_name(self, row):
-        return row["xfmr"]
+        return self._required_field(row, "xfmr", "DistributionTransformer")
+
+    def _infer_winding_phases(self, row, winding_index: int):
+        phase_key = f"wdg_{winding_index}_phase"
+        if phase_key in row and row[phase_key] is not None:
+            phase_text = str(row[phase_key]).replace("N", "")
+            return [Phase[phase] for phase in phase_text if phase in {"A", "B", "C"}]
+
+        bus_name = row.get(f"bus_{winding_index}") if hasattr(row, "get") else None
+        if bus_name is None:
+            return [Phase.A, Phase.B, Phase.C]
+
+        try:
+            bus = self.system.get_component(DistributionBus, bus_name)
+        except Exception:
+            bus = None
+        if bus is None:
+            return [Phase.A, Phase.B, Phase.C]
+
+        bus_voltage = bus.rated_voltage.to("volt").magnitude
+        winding_voltage = float(row.get(f"wdg_{winding_index}_rated_voltage", 0.0))
+        if bus_voltage <= 0.0 or winding_voltage <= 0.0:
+            return [Phase.A, Phase.B, Phase.C]
+
+        ratio = winding_voltage / bus_voltage
+        if 1.45 <= ratio <= 2.05:
+            return [Phase.A, Phase.B, Phase.C]
+        return [Phase.A]
 
     def map_winding_phases(self, row):
-        return [[Phase.A, Phase.B, Phase.C], [Phase.A, Phase.B, Phase.C]]
+        return [self._infer_winding_phases(row, 1), self._infer_winding_phases(row, 2)]
 
     def map_bus(self, row):
-        bus_1_name = row["bus_1"]
-        bus_2_name = row["bus_2"]
-        bus_1 = self.system.get_component(DistributionBus, bus_1_name)
-        bus_2 = self.system.get_component(DistributionBus, bus_2_name)
+        transformer_name = self.map_name(row)
+        bus_1_name = self._required_field(
+            row,
+            "bus_1",
+            f"DistributionTransformer '{transformer_name}'",
+        )
+        bus_2_name = self._required_field(
+            row,
+            "bus_2",
+            f"DistributionTransformer '{transformer_name}'",
+        )
+        bus_1 = self._required_component(
+            DistributionBus,
+            bus_1_name,
+            f"DistributionTransformer '{transformer_name}'",
+        )
+        bus_2 = self._required_component(
+            DistributionBus,
+            bus_2_name,
+            f"DistributionTransformer '{transformer_name}'",
+        )
         return [bus_1, bus_2]
 
     def map_equipment(self, row):

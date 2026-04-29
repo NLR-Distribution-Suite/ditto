@@ -14,13 +14,13 @@ class DistributionBusMapper(OpenDSSMapper):
     opendss_file = OpenDSSFileTypes.COORDINATE_FILE.value
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_coordinate(self):
         if hasattr(self.model.coordinate, "x"):
-            self.opendss_dict["X"] = self.model.coordinate.y
+            self.opendss_dict["X"] = self.model.coordinate.x
         if hasattr(self.model.coordinate, "y"):
-            self.opendss_dict["Y"] = self.model.coordinate.x
+            self.opendss_dict["Y"] = self.model.coordinate.y
 
     def map_rated_voltage(self):
         kv_rated_voltage = self.model.rated_voltage.to("kV")

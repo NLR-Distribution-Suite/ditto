@@ -14,7 +14,7 @@ class BareConductorEquipmentMapper(OpenDSSMapper):
     opendss_file = OpenDSSFileTypes.WIRES_FILE.value
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_conductor_diameter(self):
         self.opendss_dict["Radius"] = self.model.conductor_diameter.magnitude / 2

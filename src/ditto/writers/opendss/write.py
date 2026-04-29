@@ -3,7 +3,7 @@ from io import TextIOWrapper
 from pathlib import Path
 from typing import Any
 
-
+from infrasys import NonSequentialTimeSeries, SingleTimeSeries
 from altdss_schema import altdss_models
 from gdm.distribution.components import (
     DistributionVoltageSource,
@@ -20,13 +20,12 @@ from gdm.distribution.equipment import (
 from loguru import logger
 
 from ditto.writers.abstract_writer import AbstractWriter
-import ditto.writers.opendss as opendss_mapper
 from ditto.enumerations import OpenDSSFileTypes
+import ditto.writers.opendss as opendss_mapper
+from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class Writer(AbstractWriter):
-    files = []
-
     def _get_dss_string(self, model_map: Any) -> str:
         # Example model_map is instance of DistributionBusMapper
         altdss_class = getattr(altdss_models, model_map.altdss_name)
@@ -46,13 +45,17 @@ class Writer(AbstractWriter):
         files_to_remove = directory.rglob("*.dss")
         for dss_file in files_to_remove:
             logger.debug(f"Deleting existing file {dss_file}")
-            # dss_file.unlink() #TODO: deletion causing tets to fail @tarek
+            dss_file.unlink()
 
     def _get_voltage_bases(self) -> list[float]:
         voltage_bases = []
         buses: list[DistributionBus] = list(self.system.get_components(DistributionBus))
         for bus in buses:
-            voltage_bases.append(bus.rated_voltage.to("kilovolt").magnitude * 1.732)
+            voltage_bases.append(
+                bus.rated_voltage.to("kilovolt").magnitude
+                if bus.voltage_type == "line-to-line"
+                else bus.rated_voltage.to("kilovolt").magnitude * LL_LN_CONVERSION_FACTOR
+            )
         return list(set(voltage_bases))
 
     def write(  # noqa
@@ -60,7 +63,9 @@ class Writer(AbstractWriter):
         output_path: Path = Path("./"),
         separate_substations: bool = True,
         separate_feeders: bool = True,
+        profile_type: type[NonSequentialTimeSeries | SingleTimeSeries] = SingleTimeSeries,
     ):
+        self.profile_type = profile_type
         base_redirect = set()
         feeders_redirect = defaultdict(set)
         substations_redirect = defaultdict(set)
@@ -73,8 +78,7 @@ class Writer(AbstractWriter):
         seen_profile = set()
 
         output_redirect = Path("")
-        profiles = self._write_profiles(output_path, seen_profile, output_redirect, base_redirect)
-
+        self._write_profiles(output_path, seen_profile, output_redirect, base_redirect)
         for component_type in component_types:
             # Example component_type is DistributionBus
             components = self.system.get_components(component_type)
@@ -125,7 +129,7 @@ class Writer(AbstractWriter):
                         controller_mapper_name = controller.__class__.__name__ + "Mapper"
                         if not hasattr(opendss_mapper, controller_mapper_name):
                             logger.warning(
-                                f"Equipment Mapper {controller_mapper_name} not found. Skipping"
+                                f"Controller Mapper {controller_mapper_name} not found. Skipping"
                             )
                         else:
                             controller_mapper = getattr(opendss_mapper, controller_mapper_name)
@@ -134,7 +138,7 @@ class Writer(AbstractWriter):
                             controller_dss_string = self._get_dss_string(controller_map)
 
                 output_folder = output_path
-                self._build_directory_structure(
+                output_folder, output_redirect = self._build_directory_structure(
                     separate_substations,
                     separate_feeders,
                     output_path,
@@ -190,8 +194,6 @@ class Writer(AbstractWriter):
                         substations_redirect[model_map.substation].add(
                             Path(equipment_map.opendss_file)
                         )
-                        if profiles:
-                            substations_redirect
 
                 if separate_feeders:
                     combined_feeder_sub = Path(model_map.substation) / Path(model_map.feeder)
@@ -217,7 +219,7 @@ class Writer(AbstractWriter):
         all_profiles = []
         profile_type = None
         for component in self.system.iter_all_components():
-            profiles = self.system.list_time_series(component)
+            profiles = self.system.list_time_series(component, time_series_type=self.profile_type)
             profile_data = []
             for profile in profiles:
                 if profile_type is None:
@@ -233,9 +235,7 @@ class Writer(AbstractWriter):
                 profile_data.append(
                     {
                         "profile": profile,
-                        "metadata": self.system.list_time_series_metadata(
-                            component, profile.variable_name
-                        ),
+                        "metadata": self.system.list_time_series_metadata(component, profile.name),
                     }
                 )
             if profile_data:
@@ -276,6 +276,8 @@ class Writer(AbstractWriter):
             output_folder /= model_map.feeder
             output_redirect /= model_map.feeder
             output_folder.mkdir(exist_ok=True)
+
+        return output_folder, output_redirect
 
     def _write_switch_status(self, file_handler: TextIOWrapper):
         switches: list[MatrixImpedanceSwitch] = list(

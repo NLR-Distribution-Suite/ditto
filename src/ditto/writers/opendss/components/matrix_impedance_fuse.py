@@ -14,9 +14,16 @@ class MatrixImpedanceFuseMapper(DistributionBranchMapper):
     altdss_composition_name = "Line"
     opendss_file = OpenDSSFileTypes.FUSE_FILE.value
 
+    def map_name(self):
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
+
     def map_equipment(self):
-        self.opendss_dict["LineCode"] = self.model.equipment.name
+        self.opendss_dict["LineCode"] = self.get_opendss_safe_name(self.model.equipment.name)
 
     def map_is_closed(self):
         # Require every phase to be enabled for the OpenDSS line to be enabled.
-        self.opendss_dict["Switch"] = "true"
+        self.opendss_dict["Switch"] = True
+
+    def map_in_service(self):
+        if not self.model.in_service:
+            self.opendss_dict["Enabled"] = False

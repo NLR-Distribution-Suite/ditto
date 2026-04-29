@@ -294,7 +294,7 @@ def build_split_phase_distribution_line(
     return MatrixImpedanceBranch(
         buses=[bus1, bus2],
         length=Distance(130.2, "meter"),
-        phases=[Phase.S1, Phase.S2, Phase.N],
+        phases=[Phase.S1, Phase.S2],
         name="DistBranch_{}_{}".format(bus1.name, bus2.name),
         equipment=matrix,
     )
@@ -412,7 +412,7 @@ def sample_distribution_system() -> DistributionSystem:
             distribution_solar = build_split_phase_solar(bus, bus_number)
             system.add_component(distribution_solar)
 
-    return system
+    return system.deepcopy()
 
 
 @pytest.fixture(name="distribution_system_with_single_timeseries")
@@ -422,14 +422,14 @@ def sample_distribution_system_with_single_timeseries(
     system: DistributionSystem = simple_distribution_system
     load_profile_kw = SingleTimeSeries.from_array(
         data=ActivePower([1, 2, 3, 4, 5], "kilowatt"),
-        variable_name="active_power",
-        initial_time=datetime(2020, 1, 1),
+        name="active_power",
+        initial_timestamp=datetime(2020, 1, 1),
         resolution=timedelta(minutes=30),
     )
     load_profile_kvar = SingleTimeSeries.from_array(
         data=ActivePower([1, 2, 3, 4, 5], "kilovar"),
-        variable_name="reactive_power",
-        initial_time=datetime(2020, 1, 1),
+        name="reactive_power",
+        initial_timestamp=datetime(2020, 1, 1),
         resolution=timedelta(minutes=30),
     )
     loads: list[DistributionLoad] = list(system.get_components(DistributionLoad))
@@ -450,8 +450,8 @@ def sample_distribution_system_with_single_timeseries(
 
     irradiance_profile = SingleTimeSeries.from_array(
         data=Irradiance([0, 0.5, 1, 0.5, 0], "kilowatt / meter ** 2"),
-        variable_name="irradiance",
-        initial_time=datetime(2020, 1, 1),
+        name="irradiance",
+        initial_timestamp=datetime(2020, 1, 1),
         resolution=timedelta(minutes=30),
     )
     pvs: list[DistributionSolar] = list(system.get_components(DistributionSolar))
@@ -465,7 +465,7 @@ def sample_distribution_system_with_single_timeseries(
 def sample_distribution_system_with_nonsequential_timeseries(
     simple_distribution_system,
 ) -> DistributionSystem:
-    system = simple_distribution_system
+    system: DistributionSystem = simple_distribution_system
     load_profile_kw = NonSequentialTimeSeries.from_array(
         data=ActivePower([1, 2, 3, 4, 5], "kilowatt"),
         timestamps=[
@@ -475,7 +475,7 @@ def sample_distribution_system_with_nonsequential_timeseries(
             datetime(2020, 2, 3),
             datetime(2020, 3, 1),
         ],
-        variable_name="active_power",
+        name="active_power",
     )
     load_profile_kvar = NonSequentialTimeSeries.from_array(
         data=ActivePower([1, 2, 3, 4, 5], "kilovar"),
@@ -486,7 +486,7 @@ def sample_distribution_system_with_nonsequential_timeseries(
             datetime(2020, 2, 3),
             datetime(2020, 3, 1),
         ],
-        variable_name="reactive_power",
+        name="reactive_power",
     )
     loads: list[DistributionLoad] = list(system.get_components(DistributionLoad))
     system.add_time_series(
@@ -513,7 +513,7 @@ def sample_distribution_system_with_nonsequential_timeseries(
             datetime(2020, 2, 3),
             datetime(2020, 3, 1),
         ],
-        variable_name="irradiance",
+        name="irradiance",
     )
     pvs: list[DistributionSolar] = list(system.get_components(DistributionSolar))
     system.add_time_series(

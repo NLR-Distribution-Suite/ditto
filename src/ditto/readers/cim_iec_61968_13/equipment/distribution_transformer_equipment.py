@@ -57,8 +57,23 @@ class DistributionTransformerEquipmentMapper(CimMapper):
 
             return [per_x]
 
-        else:
-            return [1]
+        if "wdg_1_z_1_leakage" in row and "wdg_1_z_0_leakage" in row:
+            z1 = row["wdg_1_z_1_leakage"]
+            z0 = row["wdg_1_z_0_leakage"]
+            if z1 is not None and z0 is not None:
+                x_hl = (2 * float(z1) + float(z0)) / 3
+                per_x = x_hl / (self.v_h**2 / self.s) * 100
+                return [per_x]
+
+        if "wdg_2_z_1_leakage" in row and "wdg_2_z_0_leakage" in row:
+            z1 = row["wdg_2_z_1_leakage"]
+            z0 = row["wdg_2_z_0_leakage"]
+            if z1 is not None and z0 is not None:
+                x_hl = (2 * float(z1) + float(z0)) / 3
+                per_x = x_hl / (self.v_h**2 / self.s) * 100
+                return [per_x]
+
+        return [0.01]
 
     def map_is_center_tapped(self, row):
         return False

@@ -4,6 +4,7 @@ from infrasys import Component
 
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
+from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class DistributionTransformerEquipmentMapper(OpenDSSMapper):
@@ -15,7 +16,7 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
     opendss_file = OpenDSSFileTypes.TRANSFORMERS_FILE.value
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_pct_no_load_loss(self):
         self.opendss_dict["pctNoLoadLoss"] = self.model.pct_no_load_loss
@@ -44,19 +45,34 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
             num_phases = winding.num_phases
             # rated_voltage
             nom_voltage = winding.rated_voltage.to("kV").magnitude
-            kvs.append(nom_voltage if num_phases == 1 else nom_voltage * 1.732)
+            voltage_type = winding.voltage_type
+            connection_type = winding.connection_type
+            nom_voltage_LN = (
+                nom_voltage
+                if voltage_type == "line-to-ground"
+                else nom_voltage / LL_LN_CONVERSION_FACTOR
+            )
+            kvs.append(
+                nom_voltage_LN
+                if num_phases == 1 and connection_type != "DELTA"
+                else nom_voltage_LN * LL_LN_CONVERSION_FACTOR
+            )
             # resistance
             pctRs.append(winding.resistance)
             # rated_power
-            kVAs.append(winding.rated_power.to("kva").magnitude)
+            kVAs.append(winding.rated_power.to("kilova").magnitude)
             # connection_type
-            conns.append(self.connection_map[winding.connection_type])
+            conns.append(self.connection_map[connection_type])
             # TODO: num_phases and is_grounded aren't included
-            if self.model.is_center_tapped and i == len(self.model.windings):
+            if self.model.is_center_tapped and i == len(self.model.windings) - 1:
                 kvs.append(nom_voltage)
                 pctRs.append(winding.resistance)
-                kVAs.append(winding.rated_power.to("kVa").magnitude)
+                kVAs.append(winding.rated_power.to("kilova").magnitude)
                 conns.append(self.connection_map[winding.connection_type])
+                taps.append(tap_pu[0])
+                min_tap.append(winding.min_tap_pu)
+                max_tap.append(winding.max_tap_pu)
+                num_taps.append(winding.total_taps)
         self.opendss_dict["kV"] = kvs
         self.opendss_dict["pctR"] = pctRs
         self.opendss_dict["kVA"] = kVAs
@@ -65,11 +81,9 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
             self.opendss_dict[x] = x_value
         self.opendss_dict["Phases"] = num_phases
         self.opendss_dict["Tap"] = taps
-        self.opendss_dict["Tap"] = taps
         self.opendss_dict["MinTap"] = min_tap
         self.opendss_dict["MaxTap"] = max_tap
         self.opendss_dict["NumTaps"] = num_taps
-        pass
 
     def map_coupling_sequences(self):
         # Used to know the reactance couplings

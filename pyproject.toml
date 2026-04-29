@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "NREL-ditto"
 dynamic = ["version"]
-description = 'Many to one to many distrbution system model converter '
+description = 'Many to one to many distribution system model converter'
 requires-python = ">=3.11"
 license = "MIT"
 keywords = []
@@ -15,7 +15,6 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
@@ -23,15 +22,17 @@ classifiers = [
 ]
 dependencies = [
   "opendssdirect.py",
-  "grid-data-models==2.1.4",
+  "grid-data-models==2.3.2",
   "rdflib",
-  "NREL-altdss-schema==0.0.2",
+  "NREL-altdss-schema==0.0.3",
+  "typer",
+  "mcp[cli]",
 ]
 
 [project.urls]
-Documentation = "https://github.com/NREL-Distribution-Suites/ditto#readme"
-Issues = "https://github.com/NREL-Distribution-Suites/ditto/issues"
-Source = "https://github.com/NREL-Distribution-Suites/ditto"
+Documentation = "https://github.com/NLR-Distribution-Suite/ditto#readme"
+Issues = "https://github.com/NLR-Distribution-Suite/ditto/issues"
+Source = "https://github.com/NLR-Distribution-Suite/ditto"
 
 [tool.hatch.version]
 path = "src/ditto/__init__.py"
@@ -46,7 +47,13 @@ doc = [
   ]
 dev = [
   "pytest",
-  "ruff"
+  "pytest-cov",
+  "ruff",
+  "typer",
+  "defusedxml"
+]
+mcp = [
+  "mcp[cli]",
 ]
 
 [tool.pytest.ini_options]
@@ -54,6 +61,12 @@ minversion = "6.0"
 addopts = "-ra"
 testpaths = [
     "tests",
+]
+filterwarnings = [
+    "ignore:Accessing the 'model_fields' attribute on the instance is deprecated:DeprecationWarning",
+    "ignore::pydantic.warnings.PydanticDeprecatedSince211",
+    "ignore:Pydantic serializer warnings:UserWarning",
+  "ignore::DeprecationWarning:pyparsing.*",
 ]
 
 [tool.ruff]
@@ -107,5 +120,13 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["src/ditto"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"docs" = "ditto/_docs"
+
 [tool.hatch.build.targets.sdist]
-include = ["src/ditto"]
+include = ["src/ditto", "docs"]
+
+[project.scripts]
+ditto_cli = "ditto.cli:app"
+ditto_mcp = "ditto.mcp.server:main"
+

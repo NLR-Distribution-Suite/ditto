@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from gdm.distribution import DistributionSystem
 from infrasys import Component
+from loguru import logger
 
 
 # TODO: Define a BaseMapper class one level up from this?
@@ -19,30 +20,30 @@ class OpenDSSMapper(ABC):
     }
     connection_map = {"STAR": "wye", "DELTA": "delta", "OPEN_DELTA": "delta", "OPEN_STAR": "wye"}
 
+    @property
+    @abstractmethod
+    def opendss_file(self):
+        """Return the OpenDSS file."""
+        ...
+
+    @property
+    @abstractmethod
+    def altdss_name(self):
+        """Return the name of the AltDSS class which defines the object."""
+        ...
+
+    @property
+    @abstractmethod
+    def altdss_composition_name(self):
+        """Return the name of the AltDSS class which constructs the object through composition"""
+        ...
+
     def __init__(self, model: Component, system: DistributionSystem):
         self.model = model
         self.system = system
         self.opendss_dict = {}
         self.substation = ""
         self.feeder = ""
-
-        @property
-        @abstractmethod
-        def opendss_file():
-            """Return the OpenDSS file."""
-            pass
-
-        @property
-        @abstractmethod
-        def altdss_name():
-            """Return the name of the AltDSS class which defines the object."""
-            pass
-
-        @property
-        @abstractmethod
-        def altdss_composition_name():
-            """Return the name of the AltDSS class which constructs the object through composition"""
-            pass
 
     def map_common(self):
         return
@@ -62,10 +63,11 @@ class OpenDSSMapper(ABC):
             self.feeder = self.model.feeder.name
 
     def populate_opendss_dictionary(self):
-        # Should not be populating an existing dictionary. Assert error if not empty
-        assert len(self.opendss_dict) == 0
+        # Should not be populating an existing dictionary.
+        if len(self.opendss_dict) != 0:
+            raise ValueError("opendss_dict must be empty before populating")
         self.map_common()
-        for field in self.model.model_fields:
+        for field in type(self.model).model_fields:
             mapping_function = getattr(self, "map_" + field)
             mapping_function()
 
@@ -76,17 +78,26 @@ class OpenDSSMapper(ABC):
             profile_data.append(
                 {
                     "profile": profile,
-                    "metadata": self.system.list_time_series_metadata(
-                        component, profile.variable_name
-                    ),
+                    "metadata": self.system.list_time_series_metadata(component, profile.name),
                 }
             )
         if profile_data:
             metadata = profile_data[0]["metadata"]
-
-            if metadata[0].user_attributes and "profile_name" in metadata[0].user_attributes:
-                profile_name = metadata[0].user_attributes["profile_name"]
+            if metadata[0] and "profile_name" in metadata[0].features:
+                profile_name = metadata[0].features["profile_name"]
             else:
                 profile_name = str(self.model.uuid)
 
             return profile_name
+
+    def get_opendss_safe_name(self, name: str) -> str:
+        """Fix the name to be compatible with OpenDSS by replacing spaces and periods with underscores."""
+
+        not_safe_characters = [" ", ".", "=", "!", "[", "]", "{", "}", "@", "%", "~"]
+
+        for char in not_safe_characters:
+            if char in name:
+                logger.debug(f"Replacing {char} in {name} with _ for OpenDSS compatibility.")
+                name = name.replace(char, "_")
+
+        return name
