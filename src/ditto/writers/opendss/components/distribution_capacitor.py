@@ -5,6 +5,7 @@ from infrasys import Component
 
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
+from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class DistributionCapacitorMapper(OpenDSSMapper):
@@ -19,16 +20,18 @@ class DistributionCapacitorMapper(OpenDSSMapper):
         self.opendss_dict["enabled"] = self.model.in_service
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_bus(self):
-        self.opendss_dict["Bus1"] = self.model.bus.name
+        self.opendss_dict["Bus1"] = self.get_opendss_safe_name(self.model.bus.name)
         num_phases = len(self.model.phases)
         for phase in self.model.phases:
             self.opendss_dict["Bus1"] += self.phase_map[phase]
         # TODO: Should we include the phases its connected to here?
         nom_voltage = self.model.bus.rated_voltage.to("kV").magnitude
-        self.opendss_dict["kV"] = nom_voltage if num_phases == 1 else nom_voltage * 1.732
+        self.opendss_dict["kV"] = (
+            nom_voltage if num_phases == 1 else nom_voltage * LL_LN_CONVERSION_FACTOR
+        )
 
     def map_phases(self):
         if (

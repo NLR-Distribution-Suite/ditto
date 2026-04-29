@@ -14,7 +14,7 @@ class DistributionBusMapper(OpenDSSMapper):
     opendss_file = OpenDSSFileTypes.COORDINATE_FILE.value
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_coordinate(self):
         if hasattr(self.model.coordinate, "x"):

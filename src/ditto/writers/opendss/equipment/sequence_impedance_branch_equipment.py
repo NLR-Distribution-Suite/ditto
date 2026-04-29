@@ -15,7 +15,7 @@ class SequenceImpedanceBranchEquipmentMapper(OpenDSSMapper):
     opendss_file = OpenDSSFileTypes.LINECODES_FILE.value
 
     def map_name(self):
-        self.opendss_dict["Name"] = self.model.name
+        self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_common(self):
         self.opendss_dict["Units"] = "km"
