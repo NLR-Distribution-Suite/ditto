@@ -1,6 +1,7 @@
 from collections import defaultdict
 from io import TextIOWrapper
 from pathlib import Path
+import re
 from typing import Any
 
 from infrasys import NonSequentialTimeSeries, SingleTimeSeries
@@ -26,6 +27,17 @@ from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class Writer(AbstractWriter):
+    @staticmethod
+    def _normalize_dss_string(dss_string: str) -> str:
+        """Normalize enum-style unit tokens emitted by altdss_schema.
+
+        OpenDSS expects plain unit strings (for example, ``m``), but some
+        schema objects currently emit enum-qualified values (for example,
+        ``LengthUnit.m``). Strip the enum prefix in the final DSS text.
+        """
+
+        return re.sub(r"\bLengthUnit\.([A-Za-z_][A-Za-z0-9_]*)\b", r"\1", dss_string)
+
     def _get_dss_string(self, model_map: Any) -> str:
         # Example model_map is instance of DistributionBusMapper
         altdss_class = getattr(altdss_models, model_map.altdss_name)
@@ -38,7 +50,7 @@ class Writer(AbstractWriter):
             dss_string = altdss_composition_object.dumps_dss()
         else:
             dss_string = altdss_object.dumps_dss()
-        return dss_string
+        return self._normalize_dss_string(dss_string)
 
     def prepare_folder(self, output_path):
         directory = Path(output_path)
@@ -109,8 +121,7 @@ class Writer(AbstractWriter):
                     dss_string = dss_string.replace("new Vsource", "Clear\n\nNew Circuit")
                 equipment_dss_string = None
                 equipment_map: list[Path] = None
-                controller_dss_string = None
-                controller_map: list[Path] = None
+                controller_outputs = []
 
                 if hasattr(model, "equipment"):
                     equipment_mapper_name = model.equipment.__class__.__name__ + "Mapper"
@@ -136,6 +147,7 @@ class Writer(AbstractWriter):
                             controller_map = controller_mapper(controller, model.name, self.system)
                             controller_map.populate_opendss_dictionary()
                             controller_dss_string = self._get_dss_string(controller_map)
+                            controller_outputs.append((controller_map, controller_dss_string))
 
                 output_folder = output_path
                 output_folder, output_redirect = self._build_directory_structure(
@@ -158,7 +170,7 @@ class Writer(AbstractWriter):
                         ) as fp:
                             fp.write(equipment_dss_string)
 
-                if controller_dss_string is not None:
+                for controller_map, controller_dss_string in controller_outputs:
                     feeder_substation_controller = (
                         model_map.substation + model_map.feeder + controller_dss_string
                     )
@@ -187,12 +199,20 @@ class Writer(AbstractWriter):
                         substations_redirect[model_map.substation].add(
                             Path(model_map.feeder) / equipment_map.opendss_file
                         )
+                    for controller_map, _ in controller_outputs:
+                        substations_redirect[model_map.substation].add(
+                            Path(model_map.feeder) / controller_map.opendss_file
+                        )
 
                 elif separate_substations:
                     substations_redirect[model_map.substation].add(Path(model_map.opendss_file))
                     if equipment_map is not None:
                         substations_redirect[model_map.substation].add(
                             Path(equipment_map.opendss_file)
+                        )
+                    for controller_map, _ in controller_outputs:
+                        substations_redirect[model_map.substation].add(
+                            Path(controller_map.opendss_file)
                         )
 
                 if separate_feeders:
@@ -202,11 +222,13 @@ class Writer(AbstractWriter):
                     feeders_redirect[combined_feeder_sub].add(Path(model_map.opendss_file))
                     if equipment_map is not None:
                         feeders_redirect[combined_feeder_sub].add(Path(equipment_map.opendss_file))
+                    for controller_map, _ in controller_outputs:
+                        feeders_redirect[combined_feeder_sub].add(Path(controller_map.opendss_file))
 
                 base_redirect.add(output_redirect / model_map.opendss_file)
                 if equipment_map is not None:
                     base_redirect.add(output_redirect / equipment_map.opendss_file)
-                if controller_map is not None:
+                for controller_map, _ in controller_outputs:
                     base_redirect.add(output_redirect / controller_map.opendss_file)
 
         self._write_base_master(base_redirect, output_folder)

@@ -1,4 +1,4 @@
-new Capacitor.91-92 Bus1=91.1.2.3 Phases=3 NumSteps=1 kvar=[100.0] kV=7.204908287248 Conn=wye R=[0.0] XL=[0.0] States=[1]
-new Capacitor.82-83 Bus1=82.1.2.3 Phases=3 NumSteps=1 kvar=[100.0] kV=7.204908287248 Conn=wye R=[0.0] XL=[0.0] States=[1]
-new Capacitor.89-90 Bus1=89.1.2.3 Phases=3 NumSteps=1 kvar=[100.0] kV=7.204908287248 Conn=wye R=[0.0] XL=[0.0] States=[1]
-new Capacitor.87-88 Bus1=87.1.2.3 Phases=3 NumSteps=1 kvar=[100.0] kV=7.204908287248 Conn=wye R=[0.0] XL=[0.0] States=[1]
+new Capacitor.91-92 Bus1=91.3 Phases=1 NumSteps=1 kvar=[50.0] kV=4.159877764 Conn=wye R=[0.0] XL=[0.0] States=[1]
+new Capacitor.82-83 Bus1=82.1.2.3 Phases=3 NumSteps=1 kvar=[600.0] kV=7.204908287248 Conn=wye R=[0.0] XL=[0.0] States=[1]
+new Capacitor.89-90 Bus1=89.2 Phases=1 NumSteps=1 kvar=[50.0] kV=4.159877764 Conn=wye R=[0.0] XL=[0.0] States=[1]
+new Capacitor.87-88 Bus1=87.1 Phases=1 NumSteps=1 kvar=[50.0] kV=4.159877764 Conn=wye R=[0.0] XL=[0.0] States=[1]

@@ -25,6 +25,7 @@ from ditto.readers.cyme.components.distribution_transformer import (
     DistributionTransformerMapper,
     DistributionTransformerThreeWindingMapper,
 )
+from ditto.readers.cyme.components.distribution_regulator import DistributionRegulatorMapper
 from ditto.readers.cyme.components.matrix_impedance_switch import MatrixImpedanceSwitchMapper
 from ditto.readers.cyme.equipment.matrix_impedance_switch_equipment import (
     MatrixImpedanceSwitchEquipmentMapper,

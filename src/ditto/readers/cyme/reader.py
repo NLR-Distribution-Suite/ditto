@@ -30,6 +30,7 @@ class Reader(AbstractReader):
         "GeometryBranchEquipment",
         "GeometryBranchByPhaseEquipment",
         "GeometryBranch",
+        "DistributionRegulator",
         "DistributionTransformerByPhase",
         "DistributionTransformer",
         "DistributionTransformerThreeWinding",
@@ -176,6 +177,13 @@ class Reader(AbstractReader):
                         used_sections,
                         section_id_sections,
                         read_cyme_data(equipment_file, "TRANSFORMER", index_col="ID").to_dict(
+                            "index"
+                        ),
+                    ],
+                    "DistributionRegulatorMapper": lambda: [
+                        used_sections,
+                        section_id_sections,
+                        read_cyme_data(equipment_file, "REGULATOR", index_col="ID").to_dict(
                             "index"
                         ),
                     ],
