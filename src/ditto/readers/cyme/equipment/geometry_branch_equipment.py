@@ -156,10 +156,15 @@ class BareConductorEquipmentMapper(CymeMapper):
 
     def map_conductor_diameter(self, row):
         conductor_diameter = float(row["Diameter"])
+        if conductor_diameter == 0.0:
+            conductor_diameter = 1e-05
         return Distance(conductor_diameter, "inch").to("mm")
 
     def map_conductor_gmr(self, row):
-        conductor_gmr = Distance(float(row["GMR"]), "inch").to("mm")
+        conductor_gmr_value = float(row["GMR"])
+        if conductor_gmr_value == 0.0:
+            conductor_gmr_value = 1e-05
+        conductor_gmr = Distance(conductor_gmr_value, "inch").to("mm")
         return conductor_gmr
 
     def map_ampacity(self, row):

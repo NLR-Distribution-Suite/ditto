@@ -1,0 +1,2 @@
+new XfmrCode.XFM-1 Phases=3 Windings=2 Conns=(delta, delta) kVs=[4.16, 0.48] kVAs=[150.0, 150.0] Taps=[1.0, 1.0] %Rs=[0.6349999583803946, 0.6349999583803946] %LoadLoss=0.6349999583803945 %NoLoadLoss=0.0 X12=2.720000096723876 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
+new Transformer.61-610 Phases=3 Windings=2 Buses=(61.1.2.3, 610.1.2.3) XfmrCode=XFM-1 Enabled=True

@@ -9,9 +9,7 @@ from infrasys import Component
 from rich.table import Table
 from collections import defaultdict, deque
 
-
-from gdm.distribution.components.distribution_bus import DistributionBus
-from gdm.distribution.components import DistributionVoltageSource
+from gdm.distribution.components import DistributionVoltageSource, DistributionBus
 
 
 class Reader(AbstractReader):
@@ -240,15 +238,15 @@ class Reader(AbstractReader):
                     component.__class__.model_validate(component.model_dump())
                 except ValidationError as e:
                     for error in e.errors():
-                        self.validation_errors.append(
-                            [
-                                component.name,
-                                component.__class__.__name__,
-                                error["loc"][0] if error["loc"] else "On model validation",
-                                error["type"],
-                                error["msg"],
-                            ]
-                        )
+                        err_info = [
+                            component.name,
+                            component.__class__.__name__,
+                            error["loc"][0] if error["loc"] else "On model validation",
+                            error["type"],
+                            error["msg"],
+                        ]
+
+                        self.validation_errors.append(err_info)
 
     def _validate_model(self):
         if self.validation_errors:
@@ -312,9 +310,10 @@ class Reader(AbstractReader):
 
             conn_objs = bus_obj_map[current_bus.name]
             for obj in conn_objs:
-                if obj.name in observed_components:
+                component_key = (obj.__class__.__name__, obj.name)
+                if component_key in observed_components:
                     continue
-                observed_components.add(obj.name)
+                observed_components.add(component_key)
                 component_type = obj.__class__.__name__
 
                 for j, bus in enumerate(obj.buses):

@@ -15,6 +15,9 @@ class GeometryBranchMapper(CymeMapper):
 
     def parse(self, row, used_sections, section_id_sections, cyme_section):
         name = self.map_name(row)
+        if name in used_sections:
+            return None
+
         buses = self.map_buses(row, section_id_sections)
         length = self.map_length(row)
         equipment = self.map_equipment(row, cyme_section)
