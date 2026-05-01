@@ -6,6 +6,7 @@ __pycache__/
 *$py.class
 
 tests/dump_from_tests/
+.dump/
 
 # C extensions
 *.so

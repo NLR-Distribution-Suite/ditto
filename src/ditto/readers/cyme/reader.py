@@ -127,7 +127,6 @@ class Reader(AbstractReader):
                 argument_handler = {
                     "DistributionCapacitorMapper": lambda: [
                         section_id_sections,
-                        read_cyme_data(equipment_file, "SHUNT CAPACITOR", index_col="ID"),
                     ],
                     "DistributionBusMapper": lambda: [
                         from_node_sections,
