@@ -32,7 +32,7 @@ class DistributionLoadMapper(OpenDSSMapper):
         self.opendss_dict["Bus1"] = self.get_opendss_safe_name(self.model.bus.name)
 
         # For delta-connected loads, single phases need line-to-line designation
-        # A→1.2, B→2.3, C→3.1
+        # A->1.2, B->2.3, C->3.1
         if num_phases == 1 and self.model.equipment.connection_type == ConnectionType.DELTA:
             phase = list(self.model.phases)[0]
             phase_map = {
@@ -47,9 +47,12 @@ class DistributionLoadMapper(OpenDSSMapper):
 
         # TODO: Should we include the phases its connected to here?
         nom_voltage = self.model.bus.rated_voltage.to("kV").magnitude
-        self.opendss_dict["kV"] = (
-            nom_voltage if num_phases == 1 else nom_voltage * LL_LN_CONVERSION_FACTOR
-        )
+        # Single-phase wye: line-to-neutral (divide by sqrt(3))
+        # Single-phase delta or 3-phase: line-to-line (no conversion)
+        if num_phases == 1 and self.model.equipment.connection_type == ConnectionType.STAR:
+            self.opendss_dict["kV"] = nom_voltage / LL_LN_CONVERSION_FACTOR
+        else:
+            self.opendss_dict["kV"] = nom_voltage
 
     def map_phases(self):
         if (

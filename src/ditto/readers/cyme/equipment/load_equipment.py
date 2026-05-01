@@ -50,6 +50,22 @@ class LoadEquipmentMapper(CymeMapper):
 
 
 class PhaseLoadEquipmentMapper(CymeMapper):
+    # CYME customer class definitions (from Load.txt [CUSTOMER CLASS])
+    # Maps CustomerType to (P%, I%, Z%) tuple representing ZIP coefficients
+    ZIP_MAP = {
+        "Z": (0, 0, 1),  # Constant Impedance
+        "I": (0, 1, 0),  # Constant Current
+        "PQ": (1, 0, 0),  # Constant Power
+        "Commercial": (1, 0, 0),
+        "Heater": (1, 0, 0),
+        "Industrial": (1, 0, 0),
+        "Lighting": (1, 0, 0),
+        "Other": (1, 0, 0),
+        "Power_Electronics": (1, 0, 0),
+        "Residential": (1, 0, 0),
+        "Rotating_Machine": (1, 0, 0),
+    }
+
     def __init__(self, system):
         super().__init__(system)
 
@@ -63,22 +79,17 @@ class PhaseLoadEquipmentMapper(CymeMapper):
         if real_power == 0 and reactive_power == 0:
             logger.warning(f"Load {name} has 0 kW and 0 kVAR. Skipping...")
             return None
-        z_real = self.map_z_real(row)
-        z_imag = self.map_z_imag(row)
-        i_real = self.map_i_real(row)
-        i_imag = self.map_i_imag(row)
-        p_real = self.map_p_real(row)
-        p_imag = self.map_p_imag(row)
+        p_coeff, i_coeff, z_coeff = self.get_zip_coefficients(row)
         return PhaseLoadEquipment(
             name=name,
             real_power=real_power,
             reactive_power=reactive_power,
-            z_real=z_real,
-            z_imag=z_imag,
-            i_real=i_real,
-            i_imag=i_imag,
-            p_real=p_real,
-            p_imag=p_imag,
+            z_real=z_coeff,
+            z_imag=z_coeff,
+            i_real=i_coeff,
+            i_imag=i_coeff,
+            p_real=p_coeff,
+            p_imag=p_coeff,
         )
 
     def map_name(self, row):
@@ -118,118 +129,7 @@ class PhaseLoadEquipmentMapper(CymeMapper):
         kw, kvar = self.compute_powers(row)
         return ReactivePower(kvar, "kilovar")
 
-    # Is this included in CYME 9.* ? It was in customer class in previous cyme versions
-    def map_z_real(self, row):
-        # Read ZIP coefficients based on CustomerType
+    def get_zip_coefficients(self, row):
+        """Get ZIP coefficients (P%, I%, Z%) based on CustomerType."""
         customer_type = row.get("CustomerType", "PQ")
-        # CYME customer class definitions (from Load.txt [CUSTOMER CLASS])
-        zip_map = {
-            "Z": (0, 0, 1),  # (P%, I%, Z%)
-            "I": (0, 1, 0),  # Constant Current
-            "PQ": (1, 0, 0),  # Constant Power
-            "Commercial": (1, 0, 0),
-            "Heater": (1, 0, 0),
-            "Industrial": (1, 0, 0),
-            "Lighting": (1, 0, 0),
-            "Other": (1, 0, 0),
-            "Power_Electronics": (1, 0, 0),
-            "Residential": (1, 0, 0),
-            "Rotating_Machine": (1, 0, 0),
-        }
-        p_coeff, i_coeff, z_coeff = zip_map.get(customer_type, (1, 0, 0))
-        return z_coeff
-
-    def map_z_imag(self, row):
-        # Imaginary part of impedance coefficient (same as real for now)
-        customer_type = row.get("CustomerType", "PQ")
-        zip_map = {
-            "Z": (0, 0, 1),
-            "I": (0, 1, 0),
-            "PQ": (1, 0, 0),
-            "Commercial": (1, 0, 0),
-            "Heater": (1, 0, 0),
-            "Industrial": (1, 0, 0),
-            "Lighting": (1, 0, 0),
-            "Other": (1, 0, 0),
-            "Power_Electronics": (1, 0, 0),
-            "Residential": (1, 0, 0),
-            "Rotating_Machine": (1, 0, 0),
-        }
-        p_coeff, i_coeff, z_coeff = zip_map.get(customer_type, (1, 0, 0))
-        return z_coeff
-
-    def map_i_real(self, row):
-        # Real part of current coefficient
-        customer_type = row.get("CustomerType", "PQ")
-        zip_map = {
-            "Z": (0, 0, 1),
-            "I": (0, 1, 0),
-            "PQ": (1, 0, 0),
-            "Commercial": (1, 0, 0),
-            "Heater": (1, 0, 0),
-            "Industrial": (1, 0, 0),
-            "Lighting": (1, 0, 0),
-            "Other": (1, 0, 0),
-            "Power_Electronics": (1, 0, 0),
-            "Residential": (1, 0, 0),
-            "Rotating_Machine": (1, 0, 0),
-        }
-        p_coeff, i_coeff, z_coeff = zip_map.get(customer_type, (1, 0, 0))
-        return i_coeff
-
-    def map_i_imag(self, row):
-        # Imaginary part of current coefficient
-        customer_type = row.get("CustomerType", "PQ")
-        zip_map = {
-            "Z": (0, 0, 1),
-            "I": (0, 1, 0),
-            "PQ": (1, 0, 0),
-            "Commercial": (1, 0, 0),
-            "Heater": (1, 0, 0),
-            "Industrial": (1, 0, 0),
-            "Lighting": (1, 0, 0),
-            "Other": (1, 0, 0),
-            "Power_Electronics": (1, 0, 0),
-            "Residential": (1, 0, 0),
-            "Rotating_Machine": (1, 0, 0),
-        }
-        p_coeff, i_coeff, z_coeff = zip_map.get(customer_type, (1, 0, 0))
-        return i_coeff
-
-    def map_p_real(self, row):
-        # Real part of power coefficient
-        customer_type = row.get("CustomerType", "PQ")
-        zip_map = {
-            "Z": (0, 0, 1),
-            "I": (0, 1, 0),
-            "PQ": (1, 0, 0),
-            "Commercial": (1, 0, 0),
-            "Heater": (1, 0, 0),
-            "Industrial": (1, 0, 0),
-            "Lighting": (1, 0, 0),
-            "Other": (1, 0, 0),
-            "Power_Electronics": (1, 0, 0),
-            "Residential": (1, 0, 0),
-            "Rotating_Machine": (1, 0, 0),
-        }
-        p_coeff, i_coeff, z_coeff = zip_map.get(customer_type, (1, 0, 0))
-        return p_coeff
-
-    def map_p_imag(self, row):
-        # Imaginary part of power coefficient
-        customer_type = row.get("CustomerType", "PQ")
-        zip_map = {
-            "Z": (0, 0, 1),
-            "I": (0, 1, 0),
-            "PQ": (1, 0, 0),
-            "Commercial": (1, 0, 0),
-            "Heater": (1, 0, 0),
-            "Industrial": (1, 0, 0),
-            "Lighting": (1, 0, 0),
-            "Other": (1, 0, 0),
-            "Power_Electronics": (1, 0, 0),
-            "Residential": (1, 0, 0),
-            "Rotating_Machine": (1, 0, 0),
-        }
-        p_coeff, i_coeff, z_coeff = zip_map.get(customer_type, (1, 0, 0))
-        return p_coeff
+        return self.ZIP_MAP.get(customer_type, (1, 0, 0))
