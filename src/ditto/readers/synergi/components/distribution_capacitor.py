@@ -1,4 +1,5 @@
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
+from ditto.readers.synergi.utils import parse_phases, phases_without_neutral
 from ditto.readers.synergi.equipment.capacitor_equipment import CapacitorEquipmentMapper
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.components.distribution_capacitor import DistributionCapacitor
@@ -28,16 +29,7 @@ class DistributionCapacitorMapper(SynergiMapper):
         return str(row["UniqueDeviceId"])
 
     def map_phases(self, row):
-        phase_info = row["ConnectedPhases"]
-        phases = []
-        for phase in phase_info:
-            if phase == "A":
-                phases.append(Phase.A)
-            if phase == "B":
-                phases.append(Phase.B)
-            if phase == "C":
-                phases.append(Phase.C)
-        return phases
+        return phases_without_neutral(parse_phases(row["ConnectedPhases"]))
 
     def map_bus(self, row, section_id_sections):
         section_id = row["SectionId"]

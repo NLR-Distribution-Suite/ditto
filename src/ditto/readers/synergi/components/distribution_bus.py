@@ -3,6 +3,7 @@ from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.enums import VoltageTypes, Phase
 from gdm.quantities import Voltage
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
+from ditto.readers.synergi.utils import parse_phases, sort_phases
 
 class DistributionBusMapper(SynergiMapper):
     def __init__(self, system):
@@ -43,31 +44,12 @@ class DistributionBusMapper(SynergiMapper):
 
     def map_phases(self, row, from_node_sections, to_node_sections):
         node_id = row["NodeId"]
-        section = None
-        all_phases = set()
-        if node_id in from_node_sections: 
-            for section in from_node_sections[node_id]:
-                phases = section["SectionPhases"].replace(" ","")
-                for phase in phases:
-                    all_phases.add(phase)
-        if node_id in to_node_sections:    
-            for section in to_node_sections[node_id]:
-                phases = section["SectionPhases"].replace(" ","")
-                for phase in phases:
-                    all_phases.add(phase)
-
-        all_phases = sorted(list(all_phases))
-        phases = []
-        if "A" in all_phases:
-            phases.append(Phase.A)
-        if "B" in all_phases:
-            phases.append(Phase.B)
-        if "C" in all_phases:
-            phases.append(Phase.C)
-        if "N" in all_phases:
-            phases.append(Phase.N)
-            
-        return phases
+        all_phases: set[Phase] = set()
+        for section in from_node_sections.get(node_id, []):
+            all_phases.update(parse_phases(section["SectionPhases"]))
+        for section in to_node_sections.get(node_id, []):
+            all_phases.update(parse_phases(section["SectionPhases"]))
+        return sort_phases(all_phases)
 
     def map_voltagelimits(self, row):
         return []

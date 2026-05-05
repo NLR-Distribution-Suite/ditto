@@ -1,3 +1,33 @@
+from gdm.distribution.enums import Phase
+
+_POS_MAP = {0: Phase.A, 1: Phase.B, 2: Phase.C, 3: Phase.N}
+_PHASE_ORDER = {Phase.A: 0, Phase.B: 1, Phase.C: 2, Phase.N: 3}
+
+
+def parse_phases(phase_str: str) -> list[Phase]:
+    """Parse a Synergi positional phase string into GDM Phase values.
+
+    Position 0 → A, 1 → B, 2 → C, 3 → N. A space means absent.
+    Examples:
+      "ABCN" → [A, B, C, N]
+      " B N" → [B, N]
+      "  C " → [C]
+    """
+    phases = []
+    for i, char in enumerate(phase_str):
+        if i in _POS_MAP and char.strip():
+            phases.append(_POS_MAP[i])
+    return phases
+
+
+def phases_without_neutral(phases: list[Phase]) -> list[Phase]:
+    return [p for p in phases if p != Phase.N]
+
+
+def sort_phases(phases: list[Phase] | set[Phase]) -> list[Phase]:
+    return sorted(phases, key=lambda p: _PHASE_ORDER.get(p, 99))
+
+
 # Downloading mdbtools
 import subprocess
 import platform

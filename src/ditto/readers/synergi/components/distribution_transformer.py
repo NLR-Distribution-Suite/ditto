@@ -1,4 +1,5 @@
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
+from ditto.readers.synergi.utils import parse_phases, phases_without_neutral
 from gdm.distribution.equipment.distribution_transformer_equipment import DistributionTransformerEquipment
 from gdm.distribution.components.distribution_transformer import DistributionTransformer
 from gdm.distribution.components.distribution_bus import DistributionBus
@@ -34,20 +35,9 @@ class DistributionTransformerMapper(SynergiMapper):
     def map_name(self, row):
         return row["DTranId"]    
 
-    def map_winding_phases(self,row):
-        input_phases = row["ConnPhases"].replace(" ","")
-        winding_phases = []
-        # Assume 2 windings
-        for i in range(1,3):
-            phases = []
-            if 'A' in input_phases:
-                phases.append(Phase.A)
-            if 'B' in input_phases:  
-                phases.append(Phase.B)
-            if 'C' in input_phases:
-                phases.append(Phase.C)
-            winding_phases.append(phases)    
-        return winding_phases
+    def map_winding_phases(self, row):
+        phases = phases_without_neutral(parse_phases(row["ConnPhases"]))
+        return [phases, phases]
 
     def map_bus(self, row, section_id_sections):
         section_id = str(row["SectionId"])

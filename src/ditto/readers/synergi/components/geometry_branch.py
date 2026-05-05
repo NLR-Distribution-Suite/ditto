@@ -1,4 +1,5 @@
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
+from ditto.readers.synergi.utils import parse_phases, phases_without_neutral
 from gdm.distribution.components.geometry_branch import GeometryBranch
 from gdm.distribution.equipment.geometry_branch_equipment import GeometryBranchEquipment
 from gdm.distribution.components.distribution_bus import DistributionBus
@@ -63,19 +64,7 @@ class GeometryBranchMapper(SynergiMapper):
         return Distance(length, unit).to("m")
 
     def map_phases(self, row):
-        input_phases = row["SectionPhases"].replace(" ","")
-        phases = []
-        for i in range(1,3):
-            phases = []
-            if 'A' in input_phases:
-                phases.append(Phase.A)
-            if 'B' in input_phases:  
-                phases.append(Phase.B)
-            if 'C' in input_phases:
-                phases.append(Phase.C)
-            if 'N' in input_phases:
-                phases.append(Phase.N)
-        return phases 
+        return parse_phases(row["SectionPhases"])
  
 
     def map_equipment(self, row):
