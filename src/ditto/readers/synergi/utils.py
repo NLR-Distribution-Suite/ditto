@@ -1,4 +1,10 @@
+import math
+import re
+from collections import defaultdict
+
 from gdm.distribution.enums import Phase
+from gdm.distribution.components.distribution_feeder import DistributionFeeder
+from gdm.distribution.components.distribution_substation import DistributionSubstation
 
 _POS_MAP = {0: Phase.A, 1: Phase.B, 2: Phase.C, 3: Phase.N}
 _PHASE_ORDER = {Phase.A: 0, Phase.B: 1, Phase.C: 2, Phase.N: 3}
@@ -26,6 +32,51 @@ def phases_without_neutral(phases: list[Phase]) -> list[Phase]:
 
 def sort_phases(phases: list[Phase] | set[Phase]) -> list[Phase]:
     return sorted(phases, key=lambda p: _PHASE_ORDER.get(p, 99))
+
+
+import re
+
+
+def sanitize_name(name: str) -> str:
+    name = str(name).strip()
+    name = name.replace(" - ", "_")
+    name = re.sub(r"[^\w.]", "_", name)
+    name = re.sub(r"_+", "_", name)
+    return name.strip("_")
+
+
+def safe_float(value, default: float = 0.0) -> float:
+    if value is None:
+        return default
+    try:
+        return float(str(value).strip())
+    except (ValueError, TypeError):
+        return default
+
+
+def build_node_feeder_map(feeder_data, section_data) -> dict:
+    """Build a mapping from node_id to feeder info for voltage and context lookups.
+
+    Returns dict[node_id, {"feeder_id": str, "nominal_kvll": float, "sub_id": str}]
+    """
+    feeder_info = {}
+    for _, row in feeder_data.iterrows():
+        fid = str(row["FeederId"]).strip()
+        nominal_kvll = safe_float(row.get("NominalKvll"), 12.47) or 12.47
+        sub_id = str(row.get("SubstationId", "Unknown") or "Unknown").strip()
+        feeder_info[fid] = {"nominal_kvll": nominal_kvll, "sub_id": sub_id}
+
+    node_feeder_map: dict = {}
+    for _, row in section_data.iterrows():
+        fid = str(row.get("FeederId", "")).strip()
+        from_node = str(row["FromNodeId"]).strip()
+        to_node = str(row["ToNodeId"]).strip()
+        if fid in feeder_info:
+            info = {"feeder_id": fid, **feeder_info[fid]}
+            node_feeder_map.setdefault(from_node, info)
+            node_feeder_map.setdefault(to_node, info)
+
+    return node_feeder_map
 
 
 # Downloading mdbtools

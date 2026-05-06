@@ -5,14 +5,16 @@ from gdm.distribution.equipment.concentric_cable_equipment import ConcentricCabl
 from gdm.distribution import DistributionSystem
 from gdm.quantities import Distance
 from ditto.readers.reader import AbstractReader
-from ditto.readers.synergi.utils import read_synergi_data, download_mdbtools
+from ditto.readers.synergi.utils import read_synergi_data, download_mdbtools, build_node_feeder_map
 import ditto.readers.synergi as synergi_mapper
 from loguru import logger
 
 class Reader(AbstractReader):
 
-    # Order matters here
+    # Order matters — feeders and substations must exist before components that reference them
     component_types = [
+            "DistributionFeeder",
+            "DistributionSubstation",
             "DistributionBus",
             "DistributionCapacitor",
             "DistributionLoad",
@@ -162,69 +164,68 @@ class Reader(AbstractReader):
     def read(self, model_file, equipment_file):
 
         # Read the measurement unit
-        unit_type = read_synergi_data(model_file,"SAI_Control").iloc[0]["LengthUnits"]
+        unit_type = read_synergi_data(model_file, "SAI_Control").iloc[0]["LengthUnits"]
 
-        # Section data read separately as it links to other tables
+        # Build section lookup dicts and geometry conductor map
         section_id_sections = {}
         from_node_sections = {}
         to_node_sections = {}
         geometry_conductors = {}
-        section_data = read_synergi_data(model_file,"InstSection")
+        section_data = read_synergi_data(model_file, "InstSection")
         for idx, row in section_data.iterrows():
             section_id = row["SectionId"]
             section_id_sections[section_id] = row
 
             from_node = row["FromNodeId"]
             to_node = row["ToNodeId"]
-            if not from_node in from_node_sections:
+            if from_node not in from_node_sections:
                 from_node_sections[from_node] = []
-            from_node_sections[from_node].append(row)    
-            if not to_node in to_node_sections:
+            from_node_sections[from_node].append(row)
+            if to_node not in to_node_sections:
                 to_node_sections[to_node] = []
-            to_node_sections[to_node].append(row)    
+            to_node_sections[to_node].append(row)
 
             geometry = row["ConfigurationId"]
-            phases = row["SectionPhases"].replace(' ',"")
+            phases = row["SectionPhases"].replace(' ', "")
             conductor_names = []
             for phase in phases:
-                conductor = None
-                if phase == "N":
-                    conductor = row["NeutralConductorId"]
-                else:    
-                    # Sample model has missing conductors for PhaseConductor2Id, PhaseConductor3Id
-                    # Use PhaseConductorId for all non-neutral conductors
-                    conductor = row["PhaseConductorId"]
-                conductor_names.append(conductor)    
+                conductor = row["NeutralConductorId"] if phase == "N" else row["PhaseConductorId"]
+                conductor_names.append(conductor)
             if geometry not in geometry_conductors:
                 geometry_conductors[geometry] = set()
-            geometry_conductors[geometry].add(tuple(conductor_names))    
+            geometry_conductors[geometry].add(tuple(conductor_names))
 
+        # Build node→feeder lookup for voltage and context (used by DistributionBusMapper)
+        feeder_data = read_synergi_data(model_file, "InstFeeders")
+        node_feeder_map = build_node_feeder_map(feeder_data, section_data)
 
-
-        # TODO: Base this off of the components in the init file
         for component_type in self.component_types:
             if component_type == "GeometryBranchEquipment":
                 self.create_geometry_defaults(model_file)
 
-            mapper_name = component_type+ "Mapper"
+            mapper_name = component_type + "Mapper"
             if not hasattr(synergi_mapper, mapper_name):
                 logger.warning(f"Mapper for {mapper_name} not found. Skipping")
                 continue
-            mapper = getattr(synergi_mapper, mapper_name)(self.system)
+            mapper = getattr(synergi_mapper, mapper_name)(self.system, node_feeder_map=node_feeder_map)
             table_name = mapper.synergi_table
             database = mapper.synergi_database
 
-            table_data = None
             if database == "Model":
-                table_data = read_synergi_data(model_file,table_name)
+                table_data = read_synergi_data(model_file, table_name)
             elif database == "Equipment":
-                table_data = read_synergi_data(equipment_file,table_name)
+                table_data = read_synergi_data(equipment_file, table_name)
             else:
                 raise ValueError("Invalid database type")
 
+            # DistributionSubstation needs all rows at once to group by SubstationId
+            if component_type == "DistributionSubstation":
+                components = mapper.parse_all(table_data, unit_type, section_id_sections, from_node_sections, to_node_sections)
+                self.system.add_components(*components)
+                continue
+
             components = []
-            for idx,row in table_data.iterrows():
-                mapper_name = component_type+ "Mapper"
+            for idx, row in table_data.iterrows():
                 if component_type == "GeometryBranchEquipment":
                     try:
                         model_entries = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections, geometry_conductors)
