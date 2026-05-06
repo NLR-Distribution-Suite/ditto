@@ -3,8 +3,6 @@ from gdm.distribution.components.matrix_impedance_branch import MatrixImpedanceB
 from gdm.distribution.equipment.geometry_branch_equipment import GeometryBranchEquipment
 from gdm.distribution.equipment.matrix_impedance_branch_equipment import MatrixImpedanceBranchEquipment
 from gdm.distribution.components.distribution_bus import DistributionBus
-from gdm.distribution.components.distribution_feeder import DistributionFeeder
-from gdm.distribution.components.distribution_substation import DistributionSubstation
 from gdm.quantities import Distance
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
 from ditto.readers.synergi.utils import parse_phases, phases_without_neutral, sanitize_name, safe_float
@@ -17,8 +15,10 @@ class LineSectionMapper(SynergiMapper):
     synergi_table = "InstSection"
     synergi_database = "Model"
 
-    def parse(self, row, unit_type, section_id_sections, from_node_sections, to_node_sections):
+    def parse(self, row, unit_type, section_id_sections, from_node_sections, to_node_sections, devices_on_section=None):
         section_id = str(row["SectionId"]).strip()
+        if devices_on_section and section_id in devices_on_section:
+            return None
         from_node_id = str(row["FromNodeId"]).strip()
         to_node_id = str(row["ToNodeId"]).strip()
 
@@ -107,17 +107,3 @@ class LineSectionMapper(SynergiMapper):
         except Exception:
             return None
 
-    def _lookup_feeder_substation(self, node_id):
-        feeder = None
-        substation = None
-        feeder_info = self.node_feeder_map.get(node_id, {})
-        if feeder_info:
-            try:
-                feeder = self.system.get_component(DistributionFeeder, sanitize_name(feeder_info["feeder_id"]))
-            except Exception:
-                pass
-            try:
-                substation = self.system.get_component(DistributionSubstation, sanitize_name(feeder_info["sub_id"]))
-            except Exception:
-                pass
-        return feeder, substation

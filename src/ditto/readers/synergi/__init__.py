@@ -9,3 +9,6 @@ from ditto.readers.synergi.equipment.conductor_equipment import ConductorEquipme
 from ditto.readers.synergi.equipment.geometry_branch_equipment import GeometryBranchEquipmentMapper
 from ditto.readers.synergi.equipment.matrix_impedance_branch_equipment import MatrixImpedanceBranchEquipmentMapper
 from ditto.readers.synergi.components.line_section import LineSectionMapper
+from ditto.readers.synergi.components.matrix_impedance_switch import SwitchMapper, BreakerMapper
+from ditto.readers.synergi.components.matrix_impedance_fuse import FuseMapper
+from ditto.readers.synergi.components.matrix_impedance_recloser import RecloserMapper

@@ -16,6 +16,12 @@ class Reader(AbstractReader):
             "ConductorEquipment",
             "GeometryBranchEquipment",
             "MatrixImpedanceBranchEquipment",
+            "DistributionTransformerEquipment",
+            "DistributionTransformer",
+            "Switch",
+            "Breaker",
+            "Fuse",
+            "Recloser",
             "LineSection",
     ]
 
@@ -58,6 +64,18 @@ class Reader(AbstractReader):
                 geometry_conductors[geometry] = set()
             geometry_conductors[geometry].add(tuple(conductor_names))
 
+        # Collect section IDs that have devices so LineSectionMapper can skip them
+        devices_on_section = set()
+        for device_table in ["InstSwitches", "InstBreakers", "InstFuses", "InstReclosers", "InstDTrans"]:
+            try:
+                dev_data = read_synergi_data(model_file, device_table)
+                for _, drow in dev_data.iterrows():
+                    sid = str(drow.get("SectionId", "")).strip()
+                    if sid:
+                        devices_on_section.add(sid)
+            except Exception:
+                pass
+
         # Build node→feeder lookup for voltage and context (used by DistributionBusMapper)
         feeder_data = read_synergi_data(model_file, "InstFeeders")
         node_feeder_map = build_node_feeder_map(feeder_data, section_data)
@@ -89,6 +107,8 @@ class Reader(AbstractReader):
                 try:
                     if component_type == "GeometryBranchEquipment":
                         result = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections, geometry_conductors)
+                    elif component_type == "LineSection":
+                        result = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections, devices_on_section)
                     else:
                         result = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections)
 
