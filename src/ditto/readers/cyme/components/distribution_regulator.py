@@ -102,8 +102,12 @@ class DistributionRegulatorMapper(CymeMapper):
             secondary_voltage_type = VoltageTypes.LINE_TO_GROUND
         else:
             winding_voltage = buses[1].rated_voltage
-            primary_voltage_type = buses[0].voltage_type if buses[0].voltage_type else VoltageTypes.LINE_TO_LINE
-            secondary_voltage_type = buses[1].voltage_type if buses[1].voltage_type else VoltageTypes.LINE_TO_LINE
+            primary_voltage_type = (
+                buses[0].voltage_type if buses[0].voltage_type else VoltageTypes.LINE_TO_LINE
+            )
+            secondary_voltage_type = (
+                buses[1].voltage_type if buses[1].voltage_type else VoltageTypes.LINE_TO_LINE
+            )
 
         primary_taps = [
             self.map_tap_position(row, phase, total_taps, max_buck, max_boost) for phase in phases
@@ -183,7 +187,9 @@ class DistributionRegulatorMapper(CymeMapper):
         max_step = int(max(float(row.get("MaxBuck", 0) or 0), float(row.get("MaxBoost", 0) or 0)))
         pt_ratio = float(row.get("PT", (equipment_row or {}).get("PT", 1)) or 1)
         ct_primary = float(row.get("CT", (equipment_row or {}).get("CT", 0)) or 0)
-        is_reversible = bool(int(float(row.get("Reversible", (equipment_row or {}).get("Reversible", 0)) or 0)))
+        is_reversible = bool(
+            int(float(row.get("Reversible", (equipment_row or {}).get("Reversible", 0)) or 0))
+        )
 
         controllers = []
         for phase in phases:

@@ -223,7 +223,9 @@ class Writer(AbstractWriter):
                     if equipment_map is not None:
                         feeders_redirect[combined_feeder_sub].add(Path(equipment_map.opendss_file))
                     for controller_map, _ in controller_outputs:
-                        feeders_redirect[combined_feeder_sub].add(Path(controller_map.opendss_file))
+                        feeders_redirect[combined_feeder_sub].add(
+                            Path(controller_map.opendss_file)
+                        )
 
                 base_redirect.add(output_redirect / model_map.opendss_file)
                 if equipment_map is not None:

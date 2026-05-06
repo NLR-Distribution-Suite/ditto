@@ -5,7 +5,7 @@ new Line.450-451 Switch=True Bus1=450.1.2.3 Bus2=450-451.1.2.3 LineCode=DEFAULT_
 new Line.151-300 Switch=True Bus1=151.1.2.3 Bus2=300.1.2.3 LineCode=DEFAULT_3 Length=0.001 Phases=3 Units=km Enabled=True
 new Line.60-160 Switch=True Bus1=60.1.2.3 Bus2=160.1.2.3 LineCode=DEFAULT_3 Length=0.001 Phases=3 Units=km Enabled=True
 new Line.13-152 Switch=True Bus1=13.1.2.3 Bus2=152.1.2.3 LineCode=DEFAULT_3 Length=0.001 Phases=3 Units=km Enabled=True
-new Line.61-610 Switch=True Bus1=61.1.2.3 Bus2=610.1.2.3 LineCode=DEFAULT_3 Length=0.001 Phases=3 Units=km Enabled=True
+// new Line.61-610 Switch=True Bus1=61.1.2.3 Bus2=610.1.2.3 LineCode=DEFAULT_3 Length=0.001 Phases=3 Units=km Enabled=True
 new Line.97-197 Switch=True Bus1=97.1.2.3 Bus2=197.1.2.3 LineCode=DEFAULT_3 Length=0.001 Phases=3 Units=km Enabled=True
 new Line.18-135 Switch=True Bus1=18.1.2.3 Bus2=135.1.2.3 LineCode=DEFAULT_3 Length=0.001 Phases=3 Units=km Enabled=True
 new Line.300-350 Switch=True Bus1=300.1.2.3 Bus2=350.1.2.3 LineCode=DEFAULT_3 Length=0.001 Phases=3 Units=km Enabled=True
