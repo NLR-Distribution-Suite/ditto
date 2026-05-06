@@ -9,7 +9,9 @@ from infrasys import Component
 from rich.table import Table
 from collections import defaultdict, deque
 
-from gdm.distribution.components import DistributionVoltageSource, DistributionBus
+from gdm.distribution.components.distribution_bus import DistributionBus
+from gdm.distribution.components import DistributionVoltageSource
+from gdm.distribution.components.distribution_transformer import DistributionTransformer
 
 
 class Reader(AbstractReader):
@@ -222,6 +224,8 @@ class Reader(AbstractReader):
                     ]
                     self.system.add_components(*components)
 
+        self.serialize_parallel_branches()
+
         self.assign_bus_voltages()
 
         if substation_names is not None or feeder_names is not None:
@@ -300,6 +304,11 @@ class Reader(AbstractReader):
         return self.system
 
     def assign_bus_voltages(self):
+        """
+        Assign bus voltages by traversing the system from voltage sources outward using BFS.
+        Voltage is assigned based on the voltage source and transformer ratings.
+        """
+
         observed_buses = set()
         observed_components = set()
 
@@ -368,3 +377,157 @@ class Reader(AbstractReader):
                         bus_obj_map[bus.name].append(comp)
 
         return bus_obj_map
+
+    def serialize_parallel_branches(self):
+        """
+        Detect parallel branches and serialize them by inserting new buses and copying components as needed.
+        All non-transformer parallel branches are chained in series. Only transformers may remain in parallel.
+        After serialization, validates that no non-transformer parallel edges remain and that parallel
+        transformers do not overlap on phases.
+        """
+
+        parallel_components = self._get_parallel_components()
+
+        for i, comps in enumerate(parallel_components):
+            transformers, non_transformers = self._sort_parallel_components(comps)
+
+            if transformers:
+                xfmr_primary = self.system.copy_component(
+                    transformers[0].buses[0],
+                    name=f"{transformers[0].buses[0].name}_primary",
+                    attach=True,
+                )
+                xfmr_secondary = transformers[0].buses[1]
+
+                # Chain non-transformers in series before the transformer
+                for j, comp in enumerate(non_transformers):
+                    if j == 0:
+                        if len(non_transformers) == 1:
+                            pass
+                        else:
+                            new_bus = self.system.copy_component(
+                                non_transformers[j + 1].buses[1],
+                                name=f"{non_transformers[j + 1].name}_{j}_{i}",
+                                attach=True,
+                            )
+                            comp.buses[0] = new_bus
+                        comp.buses[1] = xfmr_primary
+
+                    elif j < len(non_transformers) - 1:
+                        comp.buses[1] = non_transformers[j - 1].buses[0]
+                        new_bus = self.system.copy_component(
+                            non_transformers[j + 1].buses[1],
+                            name=f"{non_transformers[j + 1].name}_{j}_{i}",
+                            attach=True,
+                        )
+                        comp.buses[0] = new_bus
+                    else:
+                        comp.buses[1] = non_transformers[j - 1].buses[0]
+
+                for j, comp in enumerate(transformers):
+                    comp.buses[0] = xfmr_primary
+                    comp.buses[1] = xfmr_secondary
+
+            else:
+                for j, comp in enumerate(non_transformers[:-1]):
+                    new_bus = self.system.copy_component(
+                        comp.buses[1], name=f"{comp.buses[1].name}_{j}_{i}", attach=True
+                    )
+                    comp.buses[1] = new_bus
+                    non_transformers[j + 1].buses[0] = new_bus
+
+        self._validate_parallel_branches()
+
+    def _get_parallel_edges(self):
+        G = self.system.get_undirected_graph()
+        edges = defaultdict(list)
+        for u, v, key in G.edges(keys=True):
+            edge_pair = tuple(sorted((u, v)))
+            edges[edge_pair].append(key)
+        return G, {edge: keys for edge, keys in edges.items() if len(keys) > 1}
+
+    def _get_parallel_components(self) -> list[list[Component]]:
+        G, parallel_edges = self._get_parallel_edges()
+
+        parallel_edges = {
+            edge: keys
+            for edge, keys in parallel_edges.items()
+            if not all(
+                G.get_edge_data(edge[0], edge[1], key)["type"] == DistributionTransformer
+                for key in keys
+            )
+        }
+
+        parallel_components = list()
+        for edge in parallel_edges:
+            comps = list()
+            for key in parallel_edges[edge]:
+                edge_data = G.get_edge_data(edge[0], edge[1], parallel_edges[edge][key])
+                comps.append(self.system.get_component(edge_data["type"], edge_data["name"]))
+            parallel_components.append(comps)
+
+        return parallel_components
+
+    def _sort_parallel_components(
+        self, comps: list[Component]
+    ) -> tuple[list[DistributionTransformer], list[Component]]:
+        name_counts = defaultdict(int)
+        for comp in comps:
+            name_counts[comp.name] += 1
+
+        seen_names = defaultdict(int)
+        renamed_components = []
+        for comp in comps:
+            if name_counts[comp.name] > 1:
+                new_name = f"{comp.name}_{seen_names[comp.name]}"
+                new_comp = self.system.copy_component(comp, name=new_name, attach=True)
+                self.system.remove_component(comp)
+                renamed_components.append(new_comp)
+                seen_names[comp.name] += 1
+            else:
+                renamed_components.append(comp)
+
+        transformers = [c for c in renamed_components if isinstance(c, DistributionTransformer)]
+        non_transformers = [
+            c for c in renamed_components if not isinstance(c, DistributionTransformer)
+        ]
+
+        return transformers, non_transformers
+
+    def _validate_parallel_branches(self):
+        G, parallel_edges = self._get_parallel_edges()
+
+        for edge, keys in parallel_edges.items():
+            transformers = []
+            non_transformer_names = []
+            for key in keys:
+                edge_data = G.get_edge_data(edge[0], edge[1], key)
+                if edge_data["type"] == DistributionTransformer:
+                    transformers.append(
+                        self.system.get_component(DistributionTransformer, edge_data["name"])
+                    )
+                else:
+                    non_transformer_names.append(edge_data["name"])
+
+            if non_transformer_names:
+                raise ValueError(
+                    f"Non-transformer components remain in parallel between buses "
+                    f"{edge[0]} and {edge[1]}: {non_transformer_names}"
+                )
+
+            if len(transformers) <= 1:
+                continue
+
+            num_windings = min(len(t.winding_phases) for t in transformers)
+            for winding_idx in range(num_windings):
+                seen_phases = {}
+                for t in transformers:
+                    for phase in t.winding_phases[winding_idx]:
+                        if phase in seen_phases:
+                            raise ValueError(
+                                f"Parallel transformers between buses {edge[0]} and {edge[1]} "
+                                f"have overlapping phase {phase} on winding {winding_idx}: "
+                                f"{seen_phases[phase]} and {t.name}. "
+                                f"This is not supported by serialize_parallel_branches."
+                            )
+                        seen_phases[phase] = t.name
