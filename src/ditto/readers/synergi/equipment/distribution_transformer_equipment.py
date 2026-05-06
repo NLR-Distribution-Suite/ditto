@@ -8,8 +8,6 @@ from gdm.distribution.common import SequencePair
 
 
 class DistributionTransformerEquipmentMapper(SynergiMapper):
-    def __init__(self, system):
-        super().__init__(system)
 
     synergi_table = "DevTransformers"
     synergi_database = "Equipment"

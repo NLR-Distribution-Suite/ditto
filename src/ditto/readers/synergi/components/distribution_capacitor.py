@@ -48,8 +48,8 @@ class DistributionCapacitorMapper(SynergiMapper):
 
         if from_bus is None:
             return to_bus
-        if from_bus is None:
-            logger.warning(f"Load {section_id} has no bus")
+        if to_bus is None:
+            logger.warning(f"Capacitor {section_id} has no to bus")
         return from_bus
 
 

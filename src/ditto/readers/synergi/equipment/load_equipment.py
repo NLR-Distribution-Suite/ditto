@@ -5,8 +5,6 @@ from gdm.distribution.enums import ConnectionType
 from gdm.quantities import ActivePower, ReactivePower
 
 class LoadEquipmentMapper(SynergiMapper):
-    def __init__(self, system):
-        super().__init__(system)
 
     synergi_table = "Loads"    
     synergi_database = "Model"
@@ -35,8 +33,6 @@ class LoadEquipmentMapper(SynergiMapper):
         return phase_loads
 
 class PhaseLoadEquipmentMapper(SynergiMapper):
-    def __init__(self, system):
-        super().__init__(system)
 
     synergi_table = "Loads"    
     synergi_database = "Model"

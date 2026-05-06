@@ -6,8 +6,6 @@ from gdm.distribution.enums import ConnectionType, VoltageTypes
 from gdm.quantities import Voltage
 
 class CapacitorEquipmentMapper(SynergiMapper):
-    def __init__(self, system):
-        super().__init__(system)
 
     synergi_table = "InstCapacitors"
     synergi_database = "Model"
@@ -52,8 +50,6 @@ class CapacitorEquipmentMapper(SynergiMapper):
 
 
 class PhaseCapacitorEquipmentMapper(SynergiMapper):
-    def __init__(self, system):
-        super().__init__(system)
 
     synergi_table = "InstCapacitors"
     synergi_database = "Model"
