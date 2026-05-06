@@ -7,4 +7,5 @@ from ditto.readers.synergi.components.distribution_transformer import Distributi
 from ditto.readers.synergi.equipment.distribution_transformer_equipment import DistributionTransformerEquipmentMapper
 from ditto.readers.synergi.equipment.conductor_equipment import ConductorEquipmentMapper
 from ditto.readers.synergi.equipment.geometry_branch_equipment import GeometryBranchEquipmentMapper
-from ditto.readers.synergi.components.geometry_branch import GeometryBranchMapper
+from ditto.readers.synergi.equipment.matrix_impedance_branch_equipment import MatrixImpedanceBranchEquipmentMapper
+from ditto.readers.synergi.components.line_section import LineSectionMapper

@@ -7,8 +7,6 @@ from gdm.quantities import Current, Distance, ResistancePULength, Voltage
 from ditto.readers.synergi.length_units import length_units
 
 class ConductorEquipmentMapper(SynergiMapper):
-    def __init__(self, system):
-        super().__init__(system)
 
     synergi_table = "DevConductors"
     synergi_database = "Equipment"

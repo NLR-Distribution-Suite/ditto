@@ -7,8 +7,6 @@ from gdm.distribution.enums import Phase
 from loguru import logger
 
 class DistributionCapacitorMapper(SynergiMapper):
-    def __init__(self, system):
-        super().__init__(system)
 
     synergi_table = "InstCapacitors"
     synergi_database = "Model"

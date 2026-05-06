@@ -7,8 +7,6 @@ from ditto.readers.synergi.length_units import length_units
 from loguru import logger
 
 class GeometryBranchEquipmentMapper(SynergiMapper):
-    def __init__(self, system):
-        super().__init__(system)
 
     synergi_table = "DevConfig"
     synergi_database = "Equipment"

@@ -6,8 +6,6 @@ from gdm.distribution.enums import Phase
 from loguru import logger
 
 class DistributionLoadMapper(SynergiMapper):
-    def __init__(self, system):
-        super().__init__(system)
 
     synergi_table = "Loads"    
     synergi_database = "Model"
