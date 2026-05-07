@@ -1,3 +1,5 @@
+import re
+
 from gdm.distribution.components.geometry_branch import GeometryBranch
 from gdm.distribution.components.matrix_impedance_branch import MatrixImpedanceBranch
 from gdm.distribution.equipment.geometry_branch_equipment import GeometryBranchEquipment
@@ -14,6 +16,23 @@ class LineSectionMapper(SynergiMapper):
 
     synergi_table = "InstSection"
     synergi_database = "Model"
+
+    def __init__(self, system, node_feeder_map=None):
+        super().__init__(system, node_feeder_map)
+        self._matrix_equip_cache = None
+
+    def _build_matrix_equip_cache(self):
+        cache = {}
+        for equip in self.system.get_components(MatrixImpedanceBranchEquipment):
+            m = re.search(r'_(\d+)ph$', equip.name)
+            if not m:
+                continue
+            n_ph = int(m.group(1))
+            base = equip.name[: equip.name.rfind(f'_{n_ph}ph')]
+            key = (base.lower(), n_ph)
+            if key not in cache:
+                cache[key] = equip
+        return cache
 
     def parse(self, row, unit_type, section_id_sections, from_node_sections, to_node_sections, devices_on_section=None):
         section_id = str(row["SectionId"]).strip()
@@ -99,11 +118,10 @@ class LineSectionMapper(SynergiMapper):
         return None
 
     def _find_matrix_equipment(self, row, wire_phases):
+        if self._matrix_equip_cache is None:
+            self._matrix_equip_cache = self._build_matrix_equip_cache()
         conductor_name = str(row["PhaseConductorId"]).strip()
         n_cond = len(wire_phases)
-        equip_name = sanitize_name(f"{conductor_name}_{n_cond}ph")
-        try:
-            return self.system.get_component(MatrixImpedanceBranchEquipment, equip_name)
-        except Exception:
-            return None
+        base_key = sanitize_name(conductor_name).lower()
+        return self._matrix_equip_cache.get((base_key, n_cond))
 
