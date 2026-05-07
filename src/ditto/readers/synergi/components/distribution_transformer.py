@@ -1,16 +1,18 @@
+import math
+
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
 from ditto.readers.synergi.utils import parse_phases, phases_without_neutral, sanitize_name
 from gdm.distribution.equipment.distribution_transformer_equipment import DistributionTransformerEquipment
 from gdm.distribution.components.distribution_transformer import DistributionTransformer
 from gdm.distribution.components.distribution_bus import DistributionBus
-
-from gdm.distribution.enums import Phase, ConnectionType
+from gdm.distribution.enums import Phase, ConnectionType, VoltageTypes
+from gdm.quantities import Voltage
 from loguru import logger
 
 
 class DistributionTransformerMapper(SynergiMapper):
 
-    synergi_table = "InstDTrans"
+    synergi_table = "InstPrimaryTransformers"
     synergi_database = "Model"
 
     def parse(self, row, unit_type, section_id_sections, from_node_sections, to_node_sections):
@@ -27,10 +29,11 @@ class DistributionTransformerMapper(SynergiMapper):
         from_node = str(section.get("FromNodeId", "")).strip()
         feeder, substation = self._lookup_feeder_substation(from_node)
 
-        voltage_1 = round(equipment.windings[0].rated_voltage, 5)
-        voltage_2 = round(equipment.windings[1].rated_voltage, 5)
-        buses[0].rated_voltage = voltage_1
-        buses[1].rated_voltage = voltage_2
+        for bus, wdg in zip(buses, equipment.windings):
+            kv = wdg.rated_voltage.to("kilovolt").magnitude
+            if wdg.voltage_type == VoltageTypes.LINE_TO_LINE:
+                kv = kv / math.sqrt(3)
+            bus.rated_voltage = Voltage(round(kv, 5), "kilovolt")
 
         return DistributionTransformer(
             name=name,
@@ -42,10 +45,11 @@ class DistributionTransformerMapper(SynergiMapper):
         )
 
     def map_name(self, row):
-        return sanitize_name(str(row["DTranId"]).strip())
+        device_id = str(row.get("UniqueDeviceId", row["SectionId"])).strip()
+        return sanitize_name(device_id)
 
     def map_winding_phases(self, row):
-        phases = phases_without_neutral(parse_phases(row["ConnPhases"]))
+        phases = phases_without_neutral(parse_phases(row["ConnectedPhases"]))
         return [phases, phases]
 
     def map_bus(self, row, section_id_sections):
