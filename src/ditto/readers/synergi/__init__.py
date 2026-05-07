@@ -1,4 +1,5 @@
 from ditto.readers.synergi.components.distribution_feeder import DistributionFeederMapper
+from ditto.readers.synergi.components.distribution_vsource import DistributionVoltageSourceMapper
 from ditto.readers.synergi.components.distribution_substation import DistributionSubstationMapper
 from ditto.readers.synergi.components.distribution_bus import DistributionBusMapper
 from ditto.readers.synergi.components.distribution_capacitor import DistributionCapacitorMapper
@@ -12,3 +13,8 @@ from ditto.readers.synergi.components.line_section import LineSectionMapper
 from ditto.readers.synergi.components.matrix_impedance_switch import SwitchMapper, BreakerMapper
 from ditto.readers.synergi.components.matrix_impedance_fuse import FuseMapper
 from ditto.readers.synergi.components.matrix_impedance_recloser import RecloserMapper
+from ditto.readers.synergi.components.solar import DistributionSolarMapper
+from ditto.readers.synergi.components.generator import GeneratorMapper
+from ditto.readers.synergi.components.battery import DistributionBatteryMapper
+from ditto.readers.synergi.components.regulator import DistributionRegulatorMapper
+from ditto.readers.synergi.equipment.generator_equipment import GeneratorEquipmentMapper
