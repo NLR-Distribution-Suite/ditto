@@ -11,17 +11,22 @@ class Reader(AbstractReader):
             "DistributionFeeder",
             "DistributionSubstation",
             "DistributionBus",
+            "DistributionVoltageSource",
             "DistributionCapacitor",
             "DistributionLoad",
             "ConductorEquipment",
             "GeometryBranchEquipment",
             "MatrixImpedanceBranchEquipment",
             "DistributionTransformerEquipment",
+            "GeneratorEquipment",
             "DistributionTransformer",
             "Switch",
             "Breaker",
             "Fuse",
             "Recloser",
+            "DistributionRegulator",
+            "Generator",
+            "DistributionSolar",
             "LineSection",
     ]
 
@@ -66,7 +71,8 @@ class Reader(AbstractReader):
 
         # Collect section IDs that have devices so LineSectionMapper can skip them
         devices_on_section = set()
-        for device_table in ["InstSwitches", "InstBreakers", "InstFuses", "InstReclosers", "InstDTrans"]:
+        for device_table in ["InstSwitches", "InstBreakers", "InstFuses", "InstReclosers",
+                              "InstPrimaryTransformers", "InstRegulators"]:
             try:
                 dev_data = read_synergi_data(model_file, device_table)
                 for _, drow in dev_data.iterrows():
@@ -75,6 +81,16 @@ class Reader(AbstractReader):
                         devices_on_section.add(sid)
             except Exception:
                 pass
+
+        # Pre-load DevRegulators for DistributionRegulatorMapper
+        reg_equipment = {}
+        try:
+            for _, row in read_synergi_data(equipment_file, "DevRegulators").iterrows():
+                name = str(row.get("RegulatorName", "")).strip()
+                if name:
+                    reg_equipment[name] = row
+        except Exception:
+            pass
 
         # Build node→feeder lookup for voltage and context (used by DistributionBusMapper)
         feeder_data = read_synergi_data(model_file, "InstFeeders")
@@ -109,6 +125,8 @@ class Reader(AbstractReader):
                         result = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections, geometry_conductors)
                     elif component_type == "LineSection":
                         result = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections, devices_on_section)
+                    elif component_type == "DistributionRegulator":
+                        result = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections, reg_equipment)
                     else:
                         result = mapper.parse(row, unit_type, section_id_sections, from_node_sections, to_node_sections)
 
