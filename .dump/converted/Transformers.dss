@@ -1,16 +1,16 @@
 new XfmrCode.DEFAULT_160-67_A Phases=1 Windings=2 Conns=(wye, wye) kVs=[2.4, 2.4] kVAs=[45.0, 45.0] Taps=[1.04375, 1.04375] %Rs=[0.1, 0.1] %LoadLoss=0.0 %NoLoadLoss=0.0 X12=1.0 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
-new Transformer.160-67_A Phases=1 Windings=2 Buses=(160.1, 67.1) XfmrCode=DEFAULT_160-67_A Enabled=True
+new Transformer.160-67_A Phases=1 Windings=2 Buses=(67_1_3_2_3.1, 67_1_3_2_3.1) XfmrCode=DEFAULT_160-67_A Enabled=True
 new XfmrCode.DEFAULT_160-67_B Phases=1 Windings=2 Conns=(wye, wye) kVs=[2.4, 2.4] kVAs=[45.0, 45.0] Taps=[1.01875, 1.01875] %Rs=[0.1, 0.1] %LoadLoss=0.0 %NoLoadLoss=0.0 X12=1.0 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
-new Transformer.160-67_B Phases=1 Windings=2 Buses=(160.2, 67.2) XfmrCode=DEFAULT_160-67_B Enabled=True
+new Transformer.160-67_B Phases=1 Windings=2 Buses=(67_1_3_2_3.2, 67_1_3_2_3.2) XfmrCode=DEFAULT_160-67_B Enabled=True
 new XfmrCode.DEFAULT_160-67_C Phases=1 Windings=2 Conns=(wye, wye) kVs=[2.4, 2.4] kVAs=[45.0, 45.0] Taps=[1.03125, 1.03125] %Rs=[0.1, 0.1] %LoadLoss=0.0 %NoLoadLoss=0.0 X12=1.0 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
-new Transformer.160-67_C Phases=1 Windings=2 Buses=(160.3, 67.3) XfmrCode=DEFAULT_160-67_C Enabled=True
-new XfmrCode.NON-REVERSIBLE_9-14 Phases=1 Windings=2 Conns=(wye, wye) kVs=[2.4, 2.4] kVAs=[250.0, 250.0] Taps=[0.9875, 0.9875] %Rs=[0.1, 0.1] %LoadLoss=0.0 %NoLoadLoss=0.0 X12=1.0 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
-new Transformer.9-14 Phases=1 Windings=2 Buses=(9.1, 14.1) XfmrCode=NON-REVERSIBLE_9-14 Enabled=True
-new XfmrCode.REGULATOR_150_149_150-149 Phases=1 Windings=2 Conns=(wye, wye) kVs=[2.4, 2.4] kVAs=[135.0, 135.0] Taps=[1.0375, 1.0375] %Rs=[0.1, 0.1] %LoadLoss=0.0 %NoLoadLoss=0.0 X12=1.0 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
-new Transformer.150-149 Phases=1 Windings=2 Buses=(150.1, 149.1) XfmrCode=REGULATOR_150_149_150-149 Enabled=True
+new Transformer.160-67_C Phases=1 Windings=2 Buses=(67_1_3_2_3.3, 67_1_3_2_3.3) XfmrCode=DEFAULT_160-67_C Enabled=True
 new XfmrCode.DEFAULT_25-26_A Phases=1 Windings=2 Conns=(wye, wye) kVs=[2.4, 2.4] kVAs=[45.0, 45.0] Taps=[1.00625, 1.00625] %Rs=[0.1, 0.1] %LoadLoss=0.0 %NoLoadLoss=0.0 X12=1.0 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
-new Transformer.25-26_A Phases=1 Windings=2 Buses=(25.1, 26.1) XfmrCode=DEFAULT_25-26_A Enabled=True
+new Transformer.25-26_A Phases=1 Windings=2 Buses=(26_1_1.1, 26_1_1.1) XfmrCode=DEFAULT_25-26_A Enabled=True
 new XfmrCode.DEFAULT_25-26_C Phases=1 Windings=2 Conns=(wye, wye) kVs=[2.4, 2.4] kVAs=[45.0, 45.0] Taps=[1.0, 1.0] %Rs=[0.1, 0.1] %LoadLoss=0.0 %NoLoadLoss=0.0 X12=1.0 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
-new Transformer.25-26_C Phases=1 Windings=2 Buses=(25.3, 26.3) XfmrCode=DEFAULT_25-26_C Enabled=True
+new Transformer.25-26_C Phases=1 Windings=2 Buses=(26_1_1.3, 26_1_1.3) XfmrCode=DEFAULT_25-26_C Enabled=True
+new XfmrCode.NON-REVERSIBLE_9-14 Phases=1 Windings=2 Conns=(wye, wye) kVs=[2.4, 2.4] kVAs=[250.0, 250.0] Taps=[0.9875, 0.9875] %Rs=[0.1, 0.1] %LoadLoss=0.0 %NoLoadLoss=0.0 X12=1.0 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
+new Transformer.9-14_1 Phases=1 Windings=2 Buses=(14_0_2.1, 14.1) XfmrCode=NON-REVERSIBLE_9-14 Enabled=True
+new XfmrCode.REGULATOR_150_149_150-149 Phases=1 Windings=2 Conns=(wye, wye) kVs=[2.4, 2.4] kVAs=[135.0, 135.0] Taps=[1.0375, 1.0375] %Rs=[0.1, 0.1] %LoadLoss=0.0 %NoLoadLoss=0.0 X12=1.0 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
+new Transformer.150-149_1 Phases=1 Windings=2 Buses=(149_0_4.1, 149.1) XfmrCode=REGULATOR_150_149_150-149 Enabled=True
 new XfmrCode.XFM-1 Phases=3 Windings=2 Conns=(delta, delta) kVs=[4.16, 0.48] kVAs=[150.0, 150.0] Taps=[1.0, 1.0] %Rs=[0.6349999583803946, 0.6349999583803946] %LoadLoss=0.6349999583803945 %NoLoadLoss=0.0 X12=2.720000096723876 Wdg=1 MaxTap=1.1 MinTap=0.9 NumTaps=32 Wdg=2 MaxTap=1.1 MinTap=0.9 NumTaps=32
-new Transformer.61-610 Phases=3 Windings=2 Buses=(61.1.2.3, 610.1.2.3) XfmrCode=XFM-1 Enabled=True
+new Transformer.61-610_1 Phases=3 Windings=2 Buses=(61_primary.1.2.3, 610.1.2.3) XfmrCode=XFM-1 Enabled=True
