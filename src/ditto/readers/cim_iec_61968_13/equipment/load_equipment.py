@@ -4,7 +4,7 @@ from gdm.quantities import ActivePower, ReactivePower
 from gdm.distribution.enums import ConnectionType
 
 from ditto.readers.cim_iec_61968_13.cim_mapper import CimMapper
-from ditto.readers.cim_iec_61968_13.common import phase_mapper
+from ditto.readers.cim_iec_61968_13.common import phase_mapper, normalize_phase_tokens
 
 
 class LoadEquipmentMapper(CimMapper):
@@ -12,11 +12,7 @@ class LoadEquipmentMapper(CimMapper):
         super().__init__(system)
 
     def parse(self, row):
-        phases = row["phase"]
-        if phases is None:
-            self.phases = ["A", "B", "C"]
-        else:
-            self.phases = phases.split(",")
+        self.phases = self._normalize_phase_tokens(row)
 
         phases = [phase_mapper[phase] for phase in self.phases]
         bus = self.system.get_component(component_type=DistributionBus, name=row["bus"])
@@ -24,13 +20,17 @@ class LoadEquipmentMapper(CimMapper):
         if row["grounded"] == "false" and len(phases) == 1:
             diff = list(set(bus.phases).difference(phases))
             if diff:
-                self.phases.append(diff[-1].value)
+                self.phases.append(sorted(diff, key=lambda phase: phase.value)[0].value)
 
         return LoadEquipment(
             name=self.map_name(row),
             phase_loads=self.map_phase_loads(row),
             connection_type=self.map_connection_type(row),
         )
+
+    def _normalize_phase_tokens(self, row):
+        phase_value = row.get("phase") if hasattr(row, "get") else row["phase"]
+        return normalize_phase_tokens(phase_value)
 
     # NOTE: Names may not be unique. Should we append a number to the name?
     def map_name(self, row):

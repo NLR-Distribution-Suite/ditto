@@ -6,7 +6,7 @@ from ditto.readers.cim_iec_61968_13.equipment.battery_equipment import (
     InverterEquipmentMapper,
 )
 from ditto.readers.cim_iec_61968_13.cim_mapper import CimMapper
-from ditto.readers.cim_iec_61968_13.common import phase_mapper
+from ditto.readers.cim_iec_61968_13.common import phase_mapper, normalize_phase_tokens
 
 
 class DistributionBatteryMapper(CimMapper):
@@ -38,11 +38,7 @@ class DistributionBatteryMapper(CimMapper):
         )
 
     def map_phases(self, row):
-        phases = row["phase"]
-        if phases is None:
-            phases = ["A", "B", "C"]
-        else:
-            phases = phases.split(",")
+        phases = normalize_phase_tokens(row["phase"])
         return [phase_mapper[phase] for phase in phases if phase in phase_mapper]
 
     def map_active_power(self, row):

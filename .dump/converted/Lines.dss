@@ -1,7 +1,6 @@
 new Line.101-105 Bus1=101.1.2.3 Bus2=105.1.2.3 Length=0.025548335999999998 Phases=3 Geometry=CONFIG_3_101_105 Units=km
 new Line.81-84 Bus1=81.3 Bus2=84.3 Length=0.062709552 Phases=1 Geometry=CONFIG_11_81_84 Units=km
 new Line.74-75 Bus1=74.3 Bus2=75.3 Length=0.037161216 Phases=1 Geometry=CONFIG_11_74_75 Units=km
-new Line.160-67 Bus1=160.1.2.3 Bus2=67_0_3.1.2.3 Length=0.032516123435999994 Phases=3 Geometry=CONFIG_6_160_67 Units=km
 new Line.50-51 Bus1=50.1.2.3 Bus2=51.1.2.3 Length=0.023225759999999998 Phases=3 Geometry=CONFIG_4_50_51 Units=km
 new Line.135-35 Bus1=135.1.2.3 Bus2=35.1.2.3 Length=0.03483864 Phases=3 Geometry=CONFIG_4_135_35 Units=km
 new Line.69-70 Bus1=69.1 Bus2=70.1 Length=0.030193487999999997 Phases=1 Geometry=CONFIG_9_69_70 Units=km
@@ -75,7 +74,6 @@ new Line.98-99 Bus1=98.1.2.3 Bus2=99.1.2.3 Length=0.051096671999999996 Phases=3 
 new Line.68-69 Bus1=68.1 Bus2=69.1 Length=0.025548335999999998 Phases=1 Geometry=CONFIG_9_68_69 Units=km
 new Line.152-52 Bus1=152.1.2.3 Bus2=52.1.2.3 Length=0.037161216 Phases=3 Geometry=CONFIG_1_152_52 Units=km
 new Line.70-71 Bus1=70.1 Bus2=71.1 Length=0.025548335999999998 Phases=1 Geometry=CONFIG_9_70_71 Units=km
-new Line.25-26 Bus1=25.1.3 Bus2=26_0_1.1.3 Length=0.032516064 Phases=2 Geometry=CONFIG_7_25_26 Units=km
 new Line.1-3 Bus1=1.3 Bus2=203.3 Length=0.023225759999999998 Phases=1 Geometry=CONFIG_11_1_3 Units=km
 new Line.44-45 Bus1=44.1 Bus2=45.1 Length=0.018580608 Phases=1 Geometry=CONFIG_9_44_45 Units=km
 new Line.14-10 Bus1=14.1 Bus2=10.1 Length=0.023225759999999998 Phases=1 Geometry=CONFIG_9_14_10 Units=km
@@ -110,7 +108,6 @@ new Line.87-88 Bus1=87.1 Bus2=88.1 Length=0.0162580618704 Phases=1 Geometry=CONF
 new Line.76-77 Bus1=76.1.2.3 Bus2=77.1.2.3 Length=0.037161216 Phases=3 Geometry=CONFIG_6_76_77 Units=km
 new Line.26-27 Bus1=26.1.3 Bus2=27.1.3 Length=0.025548335999999998 Phases=2 Geometry=CONFIG_7_26_27 Units=km
 new Line.27-33 Bus1=27.1 Bus2=33.1 Length=0.046451519999999996 Phases=1 Geometry=CONFIG_9_27_33 Units=km
-new Line.9-14_0 Bus1=9.1 Bus2=14_0_2.1 Length=0.039483792 Phases=1 Geometry=CONFIG_9_9_14 Units=km
 new Line.F47 Bus1=47.1.2.3 Bus2=F47.1.2.3 LineCode=F47 Length=0.001 Phases=3 Units=km
 new Line.63-64 Bus1=63.1.2.3 Bus2=64.1.2.3 LineCode=63-64 Length=0.001 Phases=3 Units=km
 new Line.F51 Bus1=51.1.2.3 Bus2=F51.1.2.3 LineCode=F51 Length=0.001 Phases=3 Units=km

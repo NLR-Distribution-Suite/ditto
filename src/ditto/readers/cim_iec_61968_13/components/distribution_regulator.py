@@ -7,7 +7,7 @@ from ditto.readers.cim_iec_61968_13.equipment.distribution_transformer_equipment
 )
 
 from ditto.readers.cim_iec_61968_13.cim_mapper import CimMapper
-from ditto.readers.cim_iec_61968_13.common import phase_mapper
+from ditto.readers.cim_iec_61968_13.common import phase_mapper, normalize_phase_tokens
 
 
 class DistributionRegulatorMapper(CimMapper):
@@ -28,12 +28,12 @@ class DistributionRegulatorMapper(CimMapper):
 
     def map_winding_phases(self, row):
         if "wdg_1_phase" in row:
-            phase_1 = [phase_mapper[phs] for phs in row["wdg_1_phase"].replace("N", "")]
+            phase_1 = [phase_mapper[phs] for phs in normalize_phase_tokens(row["wdg_1_phase"])]
         else:
             phase_1 = [Phase.A, Phase.B, Phase.C]
 
         if "wdg_2_phase" in row:
-            phase_2 = [phase_mapper[phs] for phs in row["wdg_2_phase"].replace("N", "")]
+            phase_2 = [phase_mapper[phs] for phs in normalize_phase_tokens(row["wdg_2_phase"])]
         else:
             phase_2 = [Phase.A, Phase.B, Phase.C]
 

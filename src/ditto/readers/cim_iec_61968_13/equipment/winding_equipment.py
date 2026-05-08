@@ -4,7 +4,7 @@ from gdm.distribution.equipment import WindingEquipment
 from gdm.distribution.components import DistributionBus
 
 from ditto.readers.cim_iec_61968_13.cim_mapper import CimMapper
-from ditto.readers.cim_iec_61968_13.common import phase_mapper
+from ditto.readers.cim_iec_61968_13.common import phase_mapper, normalize_phase_tokens
 
 
 class WindingEquipmentMapper(CimMapper):
@@ -44,7 +44,9 @@ class WindingEquipmentMapper(CimMapper):
 
     def _build_winding(self, row, full_row, index, xfmr_name):
         if f"wdg_{index}_phase" in row:
-            self.phases = [phase_mapper[phs] for phs in row[f"wdg_{index}_phase"].replace("N", "")]
+            self.phases = [
+                phase_mapper[phs] for phs in normalize_phase_tokens(row[f"wdg_{index}_phase"])
+            ]
         else:
             self.phases = self._infer_phases_from_voltage(full_row, index)
         self.n_phases = len(self.phases)
@@ -58,10 +60,7 @@ class WindingEquipmentMapper(CimMapper):
 
         for k, v in mapping.items():
             if k in row:
-                if row[k]:
-                    setattr(self, v[0], float(row[k]))
-                else:
-                    setattr(self, v[0], v[1])
+                setattr(self, v[0], self._coerce_float_or_default(row[k], v[1]))
             else:
                 setattr(self, v[0], v[1])
 
@@ -85,6 +84,23 @@ class WindingEquipmentMapper(CimMapper):
             min_tap_pu=self.map_min_tap_pu(row, index),
             max_tap_pu=self.map_max_tap_pu(row, index),
         )
+
+    def _coerce_float_or_default(self, value, default):
+        if value is None:
+            return default
+
+        text_value = str(value).strip()
+        if not text_value or text_value.upper() == "NAN":
+            return default
+
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError):
+            return default
+
+        if numeric_value != numeric_value:  # NaN check without extra imports
+            return default
+        return numeric_value
 
     def map_name(self, winding_number, xfmr_name):
         return f"{xfmr_name}_winding_{winding_number}"

@@ -12,6 +12,9 @@ from collections import defaultdict, deque
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.components import DistributionVoltageSource
 from gdm.distribution.components.distribution_transformer import DistributionTransformer
+from gdm.distribution.components.distribution_capacitor import DistributionCapacitor
+from gdm.distribution.components.base.distribution_branch_base import DistributionBranchBase
+from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
 class Reader(AbstractReader):
@@ -224,9 +227,10 @@ class Reader(AbstractReader):
                     ]
                     self.system.add_components(*components)
 
-        self.assign_bus_voltages()
+        self._get_parallel_components()
 
-        self.serialize_parallel_branches()
+        self.assign_bus_voltages()
+        self._correct_capacitor_bus_voltages()
 
         if substation_names is not None or feeder_names is not None:
             self.system = network_truncation(
@@ -336,7 +340,7 @@ class Reader(AbstractReader):
                     if bus.name == current_bus.name:
                         continue
 
-                    if component_type in ("DistributionTransformer", "DistributionRegulator"):
+                    if component_type == "DistributionTransformer":
                         for i, winding in enumerate(obj.equipment.windings):
                             voltage = winding.rated_voltage
                             voltage_type = winding.voltage_type
@@ -344,6 +348,9 @@ class Reader(AbstractReader):
                             if i == j and voltage != current_voltage:
                                 bus.voltage_type = voltage_type
                                 bus.rated_voltage = voltage
+                                logger.info(
+                                    f"Assigned voltage {voltage} and type {voltage_type} to bus {bus.name} based on transformer {obj.name} winding {i}"
+                                )
 
                     else:
                         bus.rated_voltage = current_voltage
@@ -358,11 +365,27 @@ class Reader(AbstractReader):
         voltage_sources = list(self.system.get_components(DistributionVoltageSource))
 
         for vsource in voltage_sources:
-            # CYME voltage sources provide line-to-line voltage directly, no conversion needed
-            vsource.bus.rated_voltage = vsource.equipment.sources[0].voltage
+            vsource.bus.rated_voltage = (
+                vsource.equipment.sources[0].voltage * LL_LN_CONVERSION_FACTOR
+                if len(vsource.phases) > 1
+                else vsource.equipment.sources[0].voltage
+            )
             bus_queue.append(vsource.bus.name)
 
         return bus_queue
+
+    def _correct_capacitor_bus_voltages(self):
+        for capacitor in self.system.get_components(DistributionCapacitor):
+            if capacitor.bus is None or capacitor.bus.rated_voltage is None:
+                continue
+
+            # CYME capacitor kV values align with LN base; keep capacitor-local
+            # bus voltage on that base without altering the shared system bus.
+            capacitor.bus = capacitor.bus.model_copy(
+                update={
+                    "rated_voltage": capacitor.bus.rated_voltage / LL_LN_CONVERSION_FACTOR,
+                }
+            )
 
     def _create_bus_obj_map(self):
         bus_obj_map = defaultdict(list)
@@ -374,103 +397,6 @@ class Reader(AbstractReader):
                         bus_obj_map[bus.name].append(comp)
 
         return bus_obj_map
-
-    def serialize_parallel_branches(self):
-        """
-        Detect parallel branches and serialize them by inserting new buses and copying components as needed.
-        All non-transformer parallel branches are chained in series. Only transformers may remain in parallel.
-        After serialization, validates that no non-transformer parallel edges remain and that parallel
-        transformers do not overlap on phases.
-        """
-
-        parallel_components = self._get_parallel_components()
-
-        for i, comps in enumerate(parallel_components):
-            transformers, non_transformers = self._sort_parallel_components(comps)
-
-            if transformers:
-                # Use model_construct for buses to avoid validation before assign_bus_voltages()
-                xfmr_primary_base = transformers[0].buses[0]
-                values = {}
-                for field in type(xfmr_primary_base).model_fields:
-                    cur_val = getattr(xfmr_primary_base, field)
-                    if field == "name":
-                        val = f"{xfmr_primary_base.name}_primary"
-                    elif field in ("uuid",):
-                        continue
-                    else:
-                        val = cur_val
-                    values[field] = val
-                xfmr_primary = type(xfmr_primary_base).model_construct(**values)
-                self.system.add_component(xfmr_primary)
-                xfmr_secondary = transformers[0].buses[1]
-
-                # Chain non-transformers in series before the transformer
-                for j, comp in enumerate(non_transformers):
-                    if j == 0:
-                        if len(non_transformers) == 1:
-                            pass
-                        else:
-                            new_bus_base = non_transformers[j + 1].buses[1]
-                            values = {}
-                            for field in type(new_bus_base).model_fields:
-                                cur_val = getattr(new_bus_base, field)
-                                if field == "name":
-                                    val = f"{new_bus_base.name}_{j}_{i}"
-                                elif field in ("uuid",):
-                                    continue
-                                else:
-                                    val = cur_val
-                                values[field] = val
-                            new_bus = type(new_bus_base).model_construct(**values)
-                            self.system.add_component(new_bus)
-                            comp.buses[0] = new_bus
-                        comp.buses[1] = xfmr_primary
-
-                    elif j < len(non_transformers) - 1:
-                        comp.buses[1] = non_transformers[j - 1].buses[0]
-                        new_bus_base = non_transformers[j + 1].buses[1]
-                        values = {}
-                        for field in type(new_bus_base).model_fields:
-                            cur_val = getattr(new_bus_base, field)
-                            if field == "name":
-                                val = f"{new_bus_base.name}_{j}_{i}"
-                            elif field in ("uuid",):
-                                continue
-                            else:
-                                val = cur_val
-                            values[field] = val
-                        new_bus = type(new_bus_base).model_construct(**values)
-                        self.system.add_component(new_bus)
-                        comp.buses[0] = new_bus
-                    else:
-                        comp.buses[1] = non_transformers[j - 1].buses[0]
-
-                for j, comp in enumerate(transformers):
-                    comp.buses[0] = xfmr_primary
-                    comp.buses[1] = xfmr_secondary
-
-            else:
-                for j, comp in enumerate(non_transformers[:-1]):
-                    new_bus_base = comp.buses[1]
-                    values = {}
-                    for field in type(new_bus_base).model_fields:
-                        cur_val = getattr(new_bus_base, field)
-                        if field == "name":
-                            val = f"{new_bus_base.name}_{j}_{i}"
-                        elif field in ("uuid",):
-                            continue
-                        else:
-                            val = cur_val
-                        values[field] = val
-                    new_bus = type(new_bus_base).model_construct(**values)
-                    self.system.add_component(new_bus)
-                    comp.buses[1] = new_bus
-                    non_transformers[j + 1].buses[0] = new_bus
-
-        # Note: validation is deferred until after assign_bus_voltages()
-        # because buses have placeholder voltages at this point
-        # self._validate_parallel_branches()
 
     def _get_parallel_edges(self):
         G = self.system.get_undirected_graph()
@@ -491,90 +417,13 @@ class Reader(AbstractReader):
                 for key in keys
             )
         }
-
-        parallel_components = list()
         for edge in parallel_edges:
             comps = list()
             for key in parallel_edges[edge]:
                 edge_data = G.get_edge_data(edge[0], edge[1], parallel_edges[edge][key])
                 comps.append(self.system.get_component(edge_data["type"], edge_data["name"]))
-            parallel_components.append(comps)
-
-        return parallel_components
-
-    def _sort_parallel_components(
-        self, comps: list[Component]
-    ) -> tuple[list[DistributionTransformer], list[Component]]:
-        name_counts = defaultdict(int)
-        for comp in comps:
-            name_counts[comp.name] += 1
-
-        seen_names = defaultdict(int)
-        renamed_components = []
-        for comp in comps:
-            if name_counts[comp.name] > 1:
-                new_name = f"{comp.name}_{seen_names[comp.name]}"
-                # Use model_construct to avoid validation before assign_bus_voltages()
-                # At this point buses have placeholder voltages, so pydantic validation would fail
-                values = {}
-                for field in type(comp).model_fields:
-                    cur_val = getattr(comp, field)
-                    if field == "name":
-                        val = new_name
-                    elif field in ("uuid",):
-                        continue
-                    else:
-                        val = cur_val
-                    values[field] = val
-                new_comp = type(comp).model_construct(**values)
-                self.system.add_component(new_comp)
-                self.system.remove_component(comp)
-                renamed_components.append(new_comp)
-                seen_names[comp.name] += 1
-            else:
-                renamed_components.append(comp)
-
-        transformers = [c for c in renamed_components if isinstance(c, DistributionTransformer)]
-        non_transformers = [
-            c for c in renamed_components if not isinstance(c, DistributionTransformer)
-        ]
-
-        return transformers, non_transformers
-
-    def _validate_parallel_branches(self):
-        G, parallel_edges = self._get_parallel_edges()
-
-        for edge, keys in parallel_edges.items():
-            transformers = []
-            non_transformer_names = []
-            for key in keys:
-                edge_data = G.get_edge_data(edge[0], edge[1], key)
-                if edge_data["type"] == DistributionTransformer:
-                    transformers.append(
-                        self.system.get_component(DistributionTransformer, edge_data["name"])
+                if isinstance(comps[-1], DistributionBranchBase):
+                    self.system.remove_component(comps[-1])
+                    logger.warning(
+                        f"Removed parallel branch {comps[-1].name} between {comps[-1].buses[0].name} and {comps[-1].buses[1].name}. Parallel branches are not allowed in the model and should be serialized by the reader."
                     )
-                else:
-                    non_transformer_names.append(edge_data["name"])
-
-            if non_transformer_names:
-                raise ValueError(
-                    f"Non-transformer components remain in parallel between buses "
-                    f"{edge[0]} and {edge[1]}: {non_transformer_names}"
-                )
-
-            if len(transformers) <= 1:
-                continue
-
-            num_windings = min(len(t.winding_phases) for t in transformers)
-            for winding_idx in range(num_windings):
-                seen_phases = {}
-                for t in transformers:
-                    for phase in t.winding_phases[winding_idx]:
-                        if phase in seen_phases:
-                            raise ValueError(
-                                f"Parallel transformers between buses {edge[0]} and {edge[1]} "
-                                f"have overlapping phase {phase} on winding {winding_idx}: "
-                                f"{seen_phases[phase]} and {t.name}. "
-                                f"This is not supported by serialize_parallel_branches."
-                            )
-                        seen_phases[phase] = t.name

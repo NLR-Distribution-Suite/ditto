@@ -1,6 +1,6 @@
 Clear
 
-New Circuit.150 Bus1=150.1.2.3 BasekV=2.401777 pu=1.732 Angle=0.0 Phases=3 Z1=[0.001, 0.001] Z0=[0.001, 0.001] Enabled=True
+New Circuit.150 Bus1=150.1.2.3 BasekV=4.159877764 pu=1.0 Angle=0.0 Phases=3 Z1=[0.001, 0.001] Z0=[0.001, 0.001] Enabled=True
 redirect WireData.dss
 redirect LineCodes.dss
 redirect SwitchCodes.dss
@@ -10,8 +10,7 @@ redirect Lines.dss
 redirect Loads.dss
 redirect Switches.dss
 redirect RegControllers.dss
-New EnergyMeter.SourceMeter element=Line.150-149_0
-Set Voltagebases=[0.48, 2.401777, 4.1568]
+Set Voltagebases=[0.48, 4.159877764]
 calcv
 Solve
 redirect BusCoords.dss

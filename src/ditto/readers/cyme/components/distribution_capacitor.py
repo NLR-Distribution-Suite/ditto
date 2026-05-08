@@ -115,6 +115,9 @@ class DistributionCapacitorMapper(CymeMapper):
             rated_voltage=rated_voltage,
             voltage_type=voltage_type,
         )
+        from rich import print
+
+        print(equipment)
         return equipment
 
     def _phase_name(self, row, phase):
