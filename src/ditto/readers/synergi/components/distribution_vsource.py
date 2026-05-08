@@ -42,18 +42,40 @@ class DistributionVoltageSourceMapper(SynergiMapper):
         )
 
     def map_head_node(self, feeder_id, section_id_sections):
+        """Return the physical source bus node ID for this feeder.
+
+        Mirrors synergi_converter's FeederTopology._find_head_node():
+        1. If the feeder name itself is a virtual head node (appears as FromNodeId
+           but never as ToNodeId), the source bus is its one downstream neighbour.
+        2. Single candidate -> use it directly.
+        3. Multiple candidates -> pick by most outgoing sections.
+        """
         feeder_sections = [
             s for s in section_id_sections.values()
             if str(s.get("FeederId", "")).strip() == feeder_id
         ]
         from_ids = {str(s["FromNodeId"]).strip() for s in feeder_sections}
         to_ids = {str(s["ToNodeId"]).strip() for s in feeder_sections}
-        heads = from_ids - to_ids
-        if not heads:
+        candidates = from_ids - to_ids
+        if not candidates:
             return None
-        if len(heads) > 1:
-            logger.warning(f"Feeder {feeder_id}: multiple head candidates {heads}, using first")
-        return next(iter(heads))
+
+        # Case 1: feeder name is a virtual head node
+        if feeder_id in candidates:
+            for s in feeder_sections:
+                if str(s["FromNodeId"]).strip() == feeder_id:
+                    return str(s["ToNodeId"]).strip()
+
+        # Case 2: single physical candidate
+        if len(candidates) == 1:
+            return next(iter(candidates))
+
+        # Case 3: multiple candidates — pick most connected
+        from_count = {n: sum(1 for s in feeder_sections if str(s["FromNodeId"]).strip() == n)
+                      for n in candidates}
+        best = max(from_count, key=from_count.get)
+        logger.warning(f"Feeder {feeder_id}: {len(candidates)} head candidates, chose {best!r}")
+        return best
 
     def map_bus(self, head_node_id):
         bus_name = sanitize_name(head_node_id)
