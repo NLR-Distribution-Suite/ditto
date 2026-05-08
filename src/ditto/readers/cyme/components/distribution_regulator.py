@@ -36,32 +36,25 @@ class DistributionRegulatorMapper(CymeMapper):
             return None
 
         buses = self.map_buses(section)
-        regulators = []
-        for phase in phases:
-            phase_suffix = self.map_phase_suffix(phase)
-            regulator_name = f"{base_name}_{phase_suffix}" if len(phases) > 1 else base_name
-            single_phase = [phase]
-            winding_phases = [single_phase, single_phase]
-            equipment = self.map_equipment(row, equipment_row, single_phase, buses, regulator_name)
-            controllers = self.map_controllers(
-                row, equipment_row, single_phase, buses[1], regulator_name
+
+        # Keep multi-phase regulators as single multi-phase component, don't decompose
+        winding_phases = [phases, phases]
+        equipment = self.map_equipment(row, equipment_row, phases, buses, base_name)
+        controllers = self.map_controllers(row, equipment_row, phases, buses[1], base_name)
+
+        try:
+            regulator = DistributionRegulator.model_construct(
+                name=base_name,
+                buses=buses,
+                winding_phases=winding_phases,
+                equipment=equipment,
+                controllers=controllers,
             )
-
-            try:
-                regulators.append(
-                    DistributionRegulator.model_construct(
-                        name=regulator_name,
-                        buses=buses,
-                        winding_phases=winding_phases,
-                        equipment=equipment,
-                        controllers=controllers,
-                    )
-                )
-            except Exception as e:
-                logger.warning(f"Failed to create DistributionRegulator {regulator_name}: {e}")
-
-        used_sections.add(section_id)
-        return regulators if regulators else None
+            used_sections.add(section_id)
+            return [regulator]
+        except Exception as e:
+            logger.warning(f"Failed to create DistributionRegulator {base_name}: {e}")
+            return None
 
     def map_name(self, row):
         return row["SectionID"]

@@ -33,7 +33,18 @@ class GeometryBranchEquipmentMapper(OpenDSSMapper):
                 raise ValueError(f"{x_unit} not mapped for OpenDSS")
             units.append(self.length_units_map[x_unit])
         self.opendss_dict["Units"] = units
-        self.opendss_dict["NConds"] = len(self.model.conductors)
+
+        nconds = len(self.model.conductors)
+        self.opendss_dict["NConds"] = nconds
+
+        # Nphases = number of phase conductors (total conductors minus neutral)
+        # Assumes the last conductor is the neutral
+        nphases = nconds - 1 if nconds > 1 else 1
+        self.opendss_dict["NPhases"] = nphases
+
+        # reduce=yes only if Nphases < NConds (i.e., when there's a neutral conductor)
+        if nphases < nconds:
+            self.opendss_dict["Reduce"] = True
 
     def map_horizontal_positions(self):
         all_x = []

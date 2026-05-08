@@ -89,6 +89,7 @@ class Writer(AbstractWriter):
         seen_controller = set()
         seen_profile = set()
 
+        output_folder = output_path
         output_redirect = Path("")
         self._write_profiles(output_path, seen_profile, output_redirect, base_redirect)
         for component_type in component_types:

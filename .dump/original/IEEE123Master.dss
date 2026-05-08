@@ -216,6 +216,8 @@ Redirect IEEE123Loads.DSS
 ! that we can compare with the result with greater ease.
 ! We will let the DSS compute the voltage bases by doing a zero-load power flow.
 ! There are only two voltage bases in the problem: 4160V and 480V. These must be expressed in kV
-
+New EnergyMeter.BaseMeter element=transformer.reg1a
 Set VoltageBases = [4.16, 0.48]    ! ARRAY OF VOLTAGES IN KV
 CalcVoltageBases  ! PERFORMS ZERO LOAD POWER FLOW TO ESTIMATE VOLTAGE BASES
+_solvenocontrol
+buscoords BusCoords.dat
