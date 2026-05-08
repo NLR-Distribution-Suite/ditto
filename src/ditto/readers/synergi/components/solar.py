@@ -114,4 +114,6 @@ class DistributionSolarMapper(SynergiMapper):
         return ReactivePower(total_kvar, "kilovar")
 
     def map_in_service(self, row):
-        return bool(row.get("DGenIsOn", 1))
+        # DGenIsOn reflects Synergi dispatch state (often 0 even for installed DGs);
+        # treat installed DGs as in-service for power flow studies
+        return True
