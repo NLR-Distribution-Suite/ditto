@@ -1,112 +1,77 @@
+import math
+
 from ditto.readers.synergi.synergi_mapper import SynergiMapper
-from gdm.quantities import ReactivePower, Resistance, Reactance
+from ditto.readers.synergi.utils import sanitize_name, safe_float
+from gdm.quantities import ReactivePower, Reactance
 from gdm.distribution.equipment.phase_capacitor_equipment import PhaseCapacitorEquipment
 from gdm.distribution.equipment.capacitor_equipment import CapacitorEquipment
-from gdm.distribution.enums import ConnectionType, VoltageTypes
-from gdm.quantities import Voltage
+from gdm.distribution.enums import ConnectionType, VoltageTypes, Phase
+from infrasys.quantities import Resistance, Voltage
+
 
 class CapacitorEquipmentMapper(SynergiMapper):
 
     synergi_table = "InstCapacitors"
     synergi_database = "Model"
 
-    def parse(self, row):
-        name = self.map_name(row)
-        phase_capacitors = self.map_phase_capacitors(row)
-        connection_type = self.map_connection_type(row)
-        rated_voltage = self.map_rated_voltage(row)
-        voltage_type = self.map_voltage_type(row)
-        return CapacitorEquipment(name=name,
-                                  phase_capacitors=phase_capacitors,
-                                  connection_type=connection_type,
-                                  rated_voltage=rated_voltage,
-                                  voltage_type=voltage_type)
-
-
-    def map_name(self, row):
-        return str(row["UniqueDeviceId"])
-
-    def map_rated_voltage(self, row):
-        return Voltage(float(row["RatedKv"]), "kilovolt")
-
-    def map_voltage_type(self, row):
-        return VoltageTypes.LINE_TO_LINE
-
-    def map_phase_capacitors(self, row):
-        phase_capacitors = []
-        for phase in range(1, 4):
-            mapper = PhaseCapacitorEquipmentMapper(self.system)
-            phase_capacitor = mapper.parse(row, phase)
-            phase_capacitors.append(phase_capacitor)
-        return phase_capacitors
-
+    def parse(self, row, phases):
+        device_id = str(row.get("UniqueDeviceId", row.get("SectionId", ""))).strip()
+        safe_did = sanitize_name(device_id)
+        return CapacitorEquipment(
+            name=f"cap_equip_{safe_did}",
+            phase_capacitors=self.map_phase_capacitors(row, phases, safe_did),
+            connection_type=self.map_connection_type(row),
+            rated_voltage=self.map_rated_voltage(row),
+            voltage_type=VoltageTypes.LINE_TO_GROUND,
+        )
 
     def map_connection_type(self, row):
-        value = row["ConnectionType"]
-        if value == "YG":
-            return ConnectionType.STAR.value
-        if value == "D":
-            return ConnectionType.DELTA.value
+        value = str(row.get("ConnectionType", "YG")).strip()
+        return ConnectionType.DELTA if value == "D" else ConnectionType.STAR
 
+    def map_rated_voltage(self, row):
+        rated_kvll = safe_float(row.get("RatedKv"), 12.47)
+        if rated_kvll <= 0:
+            rated_kvll = 12.47
+        return Voltage(rated_kvll / math.sqrt(3), "kilovolt")
 
-class PhaseCapacitorEquipmentMapper(SynergiMapper):
+    def map_phase_capacitors(self, row, phases, safe_did):
+        fixed_kvar = {
+            Phase.A: safe_float(row.get("FixedKvarPhase1"), 0.0),
+            Phase.B: safe_float(row.get("FixedKvarPhase2"), 0.0),
+            Phase.C: safe_float(row.get("FixedKvarPhase3"), 0.0),
+        }
+        # Switched module banks (Module1..3 each add kvar per phase when on)
+        modules = [
+            (safe_float(row.get("Module1On"), 0.0), safe_float(row.get("Module1KvarPerPhase"), 0.0)),
+            (safe_float(row.get("Module2On"), 0.0), safe_float(row.get("Module2KvarPerPhase"), 0.0)),
+            (safe_float(row.get("Module3On"), 0.0), safe_float(row.get("Module3KvarPerPhase"), 0.0)),
+        ]
 
-    synergi_table = "InstCapacitors"
-    synergi_database = "Model"
+        phase_caps = []
+        for phase in phases:
+            fkvar = fixed_kvar.get(phase, 0.0)
+            total_kvar = fkvar
+            num_banks = 1 if fkvar > 0 else 0
+            num_banks_on = num_banks
 
-    def parse(self, row, phase):
-        name = self.map_name(row, phase)
-        resistance = self.map_resistance(row, phase)
-        reactance = self.map_reactance(row, phase)
-        rated_capacity = self.map_rated_capacity(row, phase)
-        num_banks_on = self.map_num_banks_on(row, phase)
-        num_banks = self.map_num_banks(row, phase)
-        return PhaseCapacitorEquipment(name = name,
-                                       resistance=resistance,
-                                       reactance=reactance,
-                                       rated_reactive_power=rated_capacity,
-                                       num_banks_on=num_banks_on,
-                                       num_banks=num_banks)
+            for m_on, m_kvar in modules:
+                if m_on and m_kvar > 0:
+                    total_kvar += m_kvar
+                    num_banks += 1
+                    num_banks_on += 1
 
-    def map_name(self, row, phase):
-        if phase == 1:
-            return str(row["UniqueDeviceId"]) + "_A"
-        if phase == 2:
-            return str(row["UniqueDeviceId"]) + "_B"
-        if phase == 3:
-            return str(row["UniqueDeviceId"]) + "_C"
+            if num_banks == 0:
+                num_banks = 1
+            if total_kvar <= 0:
+                total_kvar = 100.0
 
-    # Resistance and Reactance not included for capacitors
-    def map_resistance(self, row, phase):
-        return Resistance(0,'ohm')
-
-    # Resistance and Reactance not included for capacitors
-    def map_reactance(self, row, phase):
-        return Reactance(0,'ohm')
-
-    # TODO: This doesn't make sense. We should have fixed and switched values
-    def map_rated_capacity(self, row, phase):
-        total_capacity = 0
-        fixed_key = f"FixedKvarPhase{phase}"
-        if row[fixed_key] > 0:
-            total_capacity += row[fixed_key]
-        activated_key = f"Module{phase}Activated"    
-        if row[activated_key] == 1:
-            switched_key = f"Module{phase}KvarPerPhase"
-            total_capacity += row[switched_key]
-        return ReactivePower(total_capacity,'kilovar')
-
-    # TODO: This doesn't make sense. This should indicate if the bank is switched
-    def map_num_banks_on(self, row, phase):
-        num_banks_on = 0
-        activated_key = f"Module{phase}Activated"
-        if row[activated_key] == 1:
-            num_banks_on += 1
-        return num_banks_on
-
-    #TODO: This doesn't make sense. This should indicate how many banks are switched
-    def map_num_banks(self, row, phase):
-        num_banks = 1
-        return num_banks
-
-
+            phase_caps.append(PhaseCapacitorEquipment(
+                name=f"phcap_{safe_did}_{phase.value}",
+                resistance=Resistance(0.0, "ohm"),
+                reactance=Reactance(0.0, "ohm"),
+                rated_reactive_power=ReactivePower(total_kvar, "kilovar"),
+                num_banks_on=num_banks_on,
+                num_banks=num_banks,
+            ))
+        return phase_caps
