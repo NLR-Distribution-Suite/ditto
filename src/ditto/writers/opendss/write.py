@@ -318,7 +318,7 @@ class Writer(AbstractWriter):
 
         if has_source:
             bus = self.system.get_source_bus()
-
+            print(bus)
             equipment = self.system.get_bus_connected_components(bus.name, DistributionTransformer)
             if equipment:
                 equipment_type = "Transformer"
@@ -327,6 +327,7 @@ class Writer(AbstractWriter):
                 equipment = self.system.get_bus_connected_components(
                     bus.name, DistributionBranchBase
                 )
+                print(equipment)
                 if equipment:
                     equipment_type = "Line"
                     equipment_name = equipment[0].name
@@ -348,7 +349,8 @@ class Writer(AbstractWriter):
                                 base_master.write("\n")
                                 break
                 self._write_switch_status(base_master)
-
+                print("Has source:", has_source)
+                print("Equipment type:", equipment_type)
                 if has_source and equipment_type:
                     base_master.write(
                         f"New EnergyMeter.SourceMeter element={equipment_type}.{equipment_name}\n"

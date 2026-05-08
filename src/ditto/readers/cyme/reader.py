@@ -13,7 +13,6 @@ from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.components import DistributionVoltageSource
 from gdm.distribution.components.distribution_transformer import DistributionTransformer
 from gdm.distribution.components.distribution_capacitor import DistributionCapacitor
-from gdm.distribution.components.base.distribution_branch_base import DistributionBranchBase
 from ditto.constants import LL_LN_CONVERSION_FACTOR
 
 
@@ -227,9 +226,9 @@ class Reader(AbstractReader):
                     ]
                     self.system.add_components(*components)
 
-        self._get_parallel_components()
-
         self.assign_bus_voltages()
+
+        self.serialize_parallel_branches()
         self._correct_capacitor_bus_voltages()
 
         if substation_names is not None or feeder_names is not None:
@@ -398,6 +397,99 @@ class Reader(AbstractReader):
 
         return bus_obj_map
 
+    def serialize_parallel_branches(self):
+        """
+        Detect parallel branches and serialize them by inserting new buses and copying components as needed.
+        All non-transformer parallel branches are chained in series. Only transformers may remain in parallel.
+        After serialization, validates that no non-transformer parallel edges remain and that parallel
+        transformers do not overlap on phases.
+        """
+
+        parallel_components = self._get_parallel_components()
+
+        for i, comps in enumerate(parallel_components):
+            transformers, non_transformers = self._sort_parallel_components(comps)
+
+            if transformers:
+                # Use model_construct for buses to avoid validation before assign_bus_voltages()
+                xfmr_primary_base = transformers[0].buses[0]
+                values = {}
+                for field in type(xfmr_primary_base).model_fields:
+                    cur_val = getattr(xfmr_primary_base, field)
+                    if field == "name":
+                        val = f"{xfmr_primary_base.name}_primary"
+                    elif field in ("uuid",):
+                        continue
+                    else:
+                        val = cur_val
+                    values[field] = val
+                xfmr_primary = type(xfmr_primary_base).model_construct(**values)
+                self.system.add_component(xfmr_primary)
+                xfmr_secondary = transformers[0].buses[1]
+
+                # Chain non-transformers in series before the transformer
+                for j, comp in enumerate(non_transformers):
+                    if j == 0:
+                        if len(non_transformers) == 1:
+                            pass
+                        else:
+                            new_bus_base = non_transformers[j + 1].buses[1]
+                            values = {}
+                            for field in type(new_bus_base).model_fields:
+                                cur_val = getattr(new_bus_base, field)
+                                if field == "name":
+                                    val = f"{new_bus_base.name}_{j}_{i}"
+                                elif field in ("uuid",):
+                                    continue
+                                else:
+                                    val = cur_val
+                                values[field] = val
+                            new_bus = type(new_bus_base).model_construct(**values)
+                            self.system.add_component(new_bus)
+                            comp.buses[0] = new_bus
+                        comp.buses[1] = xfmr_primary
+
+                    elif j < len(non_transformers) - 1:
+                        comp.buses[1] = non_transformers[j - 1].buses[0]
+                        new_bus_base = non_transformers[j + 1].buses[1]
+                        values = {}
+                        for field in type(new_bus_base).model_fields:
+                            cur_val = getattr(new_bus_base, field)
+                            if field == "name":
+                                val = f"{new_bus_base.name}_{j}_{i}"
+                            elif field in ("uuid",):
+                                continue
+                            else:
+                                val = cur_val
+                            values[field] = val
+                        new_bus = type(new_bus_base).model_construct(**values)
+                        self.system.add_component(new_bus)
+                        comp.buses[0] = new_bus
+                    else:
+                        comp.buses[1] = non_transformers[j - 1].buses[0]
+
+                for j, comp in enumerate(transformers):
+                    comp.buses[0] = xfmr_primary
+                    comp.buses[1] = xfmr_secondary
+
+            else:
+                for j, comp in enumerate(non_transformers[:-1]):
+                    new_bus_base = comp.buses[1]
+                    values = {}
+                    for field in type(new_bus_base).model_fields:
+                        cur_val = getattr(new_bus_base, field)
+                        if field == "name":
+                            val = f"{new_bus_base.name}_{j}_{i}"
+                        elif field in ("uuid",):
+                            continue
+                        else:
+                            val = cur_val
+                        values[field] = val
+                    new_bus = type(new_bus_base).model_construct(**values)
+                    self.system.add_component(new_bus)
+                    comp.buses[1] = new_bus
+                    non_transformers[j + 1].buses[0] = new_bus
+
     def _get_parallel_edges(self):
         G = self.system.get_undirected_graph()
         edges = defaultdict(list)
@@ -417,13 +509,52 @@ class Reader(AbstractReader):
                 for key in keys
             )
         }
+
+        parallel_components = list()
         for edge in parallel_edges:
             comps = list()
             for key in parallel_edges[edge]:
                 edge_data = G.get_edge_data(edge[0], edge[1], parallel_edges[edge][key])
                 comps.append(self.system.get_component(edge_data["type"], edge_data["name"]))
-                if isinstance(comps[-1], DistributionBranchBase):
-                    self.system.remove_component(comps[-1])
-                    logger.warning(
-                        f"Removed parallel branch {comps[-1].name} between {comps[-1].buses[0].name} and {comps[-1].buses[1].name}. Parallel branches are not allowed in the model and should be serialized by the reader."
-                    )
+            parallel_components.append(comps)
+
+        return parallel_components
+
+    def _sort_parallel_components(
+        self, comps: list[Component]
+    ) -> tuple[list[DistributionTransformer], list[Component]]:
+        name_counts = defaultdict(int)
+        for comp in comps:
+            name_counts[comp.name] += 1
+
+        seen_names = defaultdict(int)
+        renamed_components = []
+        for comp in comps:
+            if name_counts[comp.name] > 1:
+                new_name = f"{comp.name}_{seen_names[comp.name]}"
+                # Use model_construct to avoid validation before assign_bus_voltages()
+                # At this point buses have placeholder voltages, so pydantic validation would fail
+                values = {}
+                for field in type(comp).model_fields:
+                    cur_val = getattr(comp, field)
+                    if field == "name":
+                        val = new_name
+                    elif field in ("uuid",):
+                        continue
+                    else:
+                        val = cur_val
+                    values[field] = val
+                new_comp = type(comp).model_construct(**values)
+                self.system.add_component(new_comp)
+                self.system.remove_component(comp)
+                renamed_components.append(new_comp)
+                seen_names[comp.name] += 1
+            else:
+                renamed_components.append(comp)
+
+        transformers = [c for c in renamed_components if isinstance(c, DistributionTransformer)]
+        non_transformers = [
+            c for c in renamed_components if not isinstance(c, DistributionTransformer)
+        ]
+
+        return transformers, non_transformers

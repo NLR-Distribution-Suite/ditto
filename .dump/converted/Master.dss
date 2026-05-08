@@ -10,6 +10,7 @@ redirect Lines.dss
 redirect Loads.dss
 redirect Switches.dss
 redirect RegControllers.dss
+New EnergyMeter.SourceMeter element=Line.150-149_0
 Set Voltagebases=[0.48, 4.159877764]
 calcv
 Solve
