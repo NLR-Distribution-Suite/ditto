@@ -116,6 +116,10 @@ class Writer(AbstractWriter):
                 model_map = mapper(model, self.system)
                 model_map.populate_opendss_dictionary()
 
+                # Skip components with empty mappings (e.g., unused intermediate buses)
+                if not model_map.opendss_dict:
+                    continue
+
                 dss_string = self._get_dss_string(model_map)
                 if dss_string.startswith("new Vsource"):
                     dss_string = dss_string.replace("new Vsource", "Clear\n\nNew Circuit")

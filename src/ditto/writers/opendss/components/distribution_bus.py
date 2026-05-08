@@ -13,6 +13,26 @@ class DistributionBusMapper(OpenDSSMapper):
     altdss_composition_name = None
     opendss_file = OpenDSSFileTypes.COORDINATE_FILE.value
 
+    def _bus_is_used(self) -> bool:
+        """Check if this bus is referenced by any component in the system."""
+        for component_type in self.system.get_component_types():
+            for component in self.system.get_components(component_type):
+                if hasattr(component, "buses"):
+                    for bus in component.buses:
+                        if bus.name == self.model.name:
+                            return True
+                elif hasattr(component, "bus") and component.bus is not None:
+                    if component.bus.name == self.model.name:
+                        return True
+        return False
+
+    def populate_opendss_dictionary(self):
+        """Skip writing coordinates for unused intermediate buses created during serialization."""
+        if not self._bus_is_used():
+            # Return empty dict so this bus doesn't get written to BusCoords.dss
+            return
+        super().populate_opendss_dictionary()
+
     def map_name(self):
         self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
