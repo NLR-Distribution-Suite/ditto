@@ -1,4 +1,5 @@
-""" Module for testing parsers."""
+"""Module for testing parsers."""
+
 from pathlib import Path
 import pytest
 from ditto.readers.cyme.reader import Reader

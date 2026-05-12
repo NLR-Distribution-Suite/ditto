@@ -377,53 +377,79 @@ class Reader(AbstractReader):
 
         while bus_queue:
             current_bus_name = bus_queue.popleft()
-
-            current_bus = self.system.get_component(DistributionBus, name=current_bus_name)
-            current_voltage = current_bus.rated_voltage
-            current_voltage_type = current_bus.voltage_type
-            observed_buses.add(current_bus.name)
-
-            conn_objs = bus_obj_map[current_bus.name]
+            current_voltage, current_voltage_type = self._get_current_bus_voltage(current_bus_name)
+            observed_buses.add(current_bus_name)
+            conn_objs = bus_obj_map[current_bus_name]
             for obj in conn_objs:
-                component_key = (obj.__class__.__name__, obj.name)
-                if component_key in observed_components:
+                if self._component_already_observed(obj, observed_components):
                     continue
-                observed_components.add(component_key)
-                component_type = obj.__class__.__name__
+                self._propagate_component_voltage(
+                    obj,
+                    current_bus_name,
+                    current_voltage,
+                    current_voltage_type,
+                    observed_buses,
+                    bus_queue,
+                )
 
-                for j, bus in enumerate(obj.buses):
-                    if bus.name == current_bus.name:
-                        continue
+    def _get_current_bus_voltage(self, bus_name):
+        current_bus = self.system.get_component(DistributionBus, name=bus_name)
+        return current_bus.rated_voltage, current_bus.voltage_type
 
-                    if component_type == "DistributionTransformer":
-                        for i, winding in enumerate(obj.equipment.windings):
-                            voltage = winding.rated_voltage
-                            voltage_type = winding.voltage_type
+    def _component_already_observed(self, obj, observed_components):
+        component_key = (obj.__class__.__name__, obj.name)
+        if component_key in observed_components:
+            return True
+        observed_components.add(component_key)
+        return False
 
-                            if (
-                                winding.connection_type == ConnectionType.STAR
-                                and winding.num_phases > 1
-                                and voltage_type == VoltageTypes.LINE_TO_LINE
-                            ):
-                                voltage = Voltage(
-                                    voltage.to("kilovolt").magnitude / LL_LN_CONVERSION_FACTOR,
-                                    "kilovolt",
-                                )
-                                voltage_type = VoltageTypes.LINE_TO_GROUND
+    def _transformer_winding_voltage(self, winding):
+        voltage = winding.rated_voltage
+        voltage_type = winding.voltage_type
+        if (
+            winding.connection_type == ConnectionType.STAR
+            and winding.num_phases > 1
+            and voltage_type == VoltageTypes.LINE_TO_LINE
+        ):
+            voltage = Voltage(
+                voltage.to("kilovolt").magnitude / LL_LN_CONVERSION_FACTOR,
+                "kilovolt",
+            )
+            voltage_type = VoltageTypes.LINE_TO_GROUND
+        return voltage, voltage_type
 
-                            if i == j and voltage != current_voltage:
-                                bus.voltage_type = voltage_type
-                                bus.rated_voltage = voltage
-                                logger.info(
-                                    f"Assigned voltage {voltage} and type {voltage_type} to bus {bus.name} based on transformer {obj.name} winding {i}"
-                                )
+    def _assign_transformer_bus_voltage(self, obj, bus_index, bus, current_voltage):
+        for winding_index, winding in enumerate(obj.equipment.windings):
+            voltage, voltage_type = self._transformer_winding_voltage(winding)
+            if winding_index == bus_index and voltage != current_voltage:
+                bus.voltage_type = voltage_type
+                bus.rated_voltage = voltage
+                logger.info(
+                    f"Assigned voltage {voltage} and type {voltage_type} to bus {bus.name} based on transformer {obj.name} winding {winding_index}"
+                )
+                return
 
-                    else:
-                        bus.rated_voltage = current_voltage
-                        bus.voltage_type = current_voltage_type
+    def _propagate_component_voltage(
+        self,
+        obj,
+        current_bus_name,
+        current_voltage,
+        current_voltage_type,
+        observed_buses,
+        bus_queue,
+    ):
+        is_transformer = obj.__class__.__name__ == "DistributionTransformer"
+        for bus_index, bus in enumerate(obj.buses):
+            if bus.name == current_bus_name:
+                continue
+            if is_transformer:
+                self._assign_transformer_bus_voltage(obj, bus_index, bus, current_voltage)
+            else:
+                bus.rated_voltage = current_voltage
+                bus.voltage_type = current_voltage_type
 
-                    if bus.name not in observed_buses:
-                        bus_queue.append(bus.name)
+            if bus.name not in observed_buses:
+                bus_queue.append(bus.name)
 
     def _start_queue_w_voltage_sources(self):
         bus_queue = deque()

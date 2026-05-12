@@ -22,7 +22,7 @@ class PhaseVoltageSourceEquipmentMapper(CymeMapper):
             phase_voltage = source_voltage / LL_LN_CONVERSION_FACTOR
         for i in range(num_phases):
             source = PhaseVoltageSourceEquipment.model_construct(
-                name=f"{bus.name}-phase-source-{i+1}",
+                name=f"{bus.name}-phase-source-{i + 1}",
                 r0=Resistance(0.001, "ohm"),
                 r1=Resistance(0.001, "ohm"),
                 x0=Reactance(0.001, "ohm"),

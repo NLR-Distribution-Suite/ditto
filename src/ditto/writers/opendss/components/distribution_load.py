@@ -54,7 +54,6 @@ class DistributionLoadMapper(OpenDSSMapper):
         else:
             self.opendss_dict["kV"] = nom_voltage * LL_LN_CONVERSION_FACTOR
 
-
     def map_phases(self):
         if (
             len(self.model.phases) == 2

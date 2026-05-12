@@ -52,9 +52,9 @@ def test_cyme_to_opendss_ieee13(tmp_path):
         ],
     )
 
-    assert np.allclose(reference_metrics, converted_metrics, rtol=0.01, atol=0.01), (
-        "CYME-to-OpenDSS conversion metrics differ from reference.\n" f"{comparison.T}"
-    )
+    assert np.allclose(
+        reference_metrics, converted_metrics, rtol=0.01, atol=0.01
+    ), f"CYME-to-OpenDSS conversion metrics differ from reference.\n{comparison.T}"
 
 
 def test_cyme_to_opendss_ieee123(tmp_path):
@@ -99,6 +99,6 @@ def test_cyme_to_opendss_ieee123(tmp_path):
         ],
     )
 
-    assert np.allclose(reference_metrics, converted_metrics, rtol=0.01, atol=0.01), (
-        "CYME-to-OpenDSS conversion metrics differ from reference.\n" f"{comparison.T}"
-    )
+    assert np.allclose(
+        reference_metrics, converted_metrics, rtol=0.01, atol=0.01
+    ), f"CYME-to-OpenDSS conversion metrics differ from reference.\n{comparison.T}"

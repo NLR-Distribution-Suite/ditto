@@ -83,69 +83,73 @@ class DistributionCapacitorMapper(CymeMapper):
     def map_controllers(self, row):
         return []
 
+    def _map_voltage_type(self, row):
+        connection = row.get("Connection", "Y")
+        if connection in ("Y", "YNG"):
+            return VoltageTypes.LINE_TO_GROUND
+        return VoltageTypes.LINE_TO_LINE
+
+    def _safe_float(self, value, default=0.0):
+        try:
+            if value is None or value == "":
+                return default
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _phase_kvar_map_from_row(self, row):
+        return {
+            Phase.A: self._safe_float(row.get("FixedKVARA", 0.0)),
+            Phase.B: self._safe_float(row.get("FixedKVARB", 0.0)),
+            Phase.C: self._safe_float(row.get("FixedKVARC", 0.0)),
+        }
+
+    def _apply_aggregate_kvar_fallback(self, row, phases, phase_kvar_map):
+        if any(value > 0 for value in phase_kvar_map.values()) or len(phases) == 0:
+            return phase_kvar_map
+
+        three_phase_kvar = self._safe_float(row.get("ThreePhaseKVAR", 0.0))
+        kvar = self._safe_float(row.get("KVAR", 0.0))
+        if three_phase_kvar > 0:
+            per_phase_kvar = three_phase_kvar / len(phases)
+        elif kvar > 0:
+            # CYME SHUNT CAPACITOR SETTING commonly stores per-phase
+            # kvar in KVAR for multi-phase rows (e.g. Phase=ABC).
+            per_phase_kvar = kvar
+        else:
+            per_phase_kvar = 0.0
+
+        if per_phase_kvar > 0:
+            for phase in phases:
+                phase_kvar_map[phase] = per_phase_kvar
+        return phase_kvar_map
+
+    def _build_phase_capacitors(self, row, phases, phase_kvar_map):
+        phase_capacitors = []
+        for phase in phases:
+            kvar_value = phase_kvar_map[phase]
+            if kvar_value <= 0:
+                continue
+            phase_capacitor = PhaseCapacitorEquipment(
+                name=self._phase_name(row, phase),
+                rated_reactive_power=ReactivePower(kvar_value, "kilovar"),
+                num_banks_on=1,
+            )
+            phase_capacitors.append(phase_capacitor)
+        return phase_capacitors
+
     def map_equipment(self, row, phases):
         """Map equipment using actual phase-specific kvar values from Network row.
 
         Instead of reading generic equipment template from Equipment.txt,
         read the actual installed phase-specific values from SHUNT CAPACITOR SETTING.
         """
-        # Get the voltage from the row (KV column in SHUNT CAPACITOR SETTING)
         rated_voltage = Voltage(float(row["KV"]), "kilovolt")
+        voltage_type = self._map_voltage_type(row)
+        phase_kvar_map = self._phase_kvar_map_from_row(row)
+        phase_kvar_map = self._apply_aggregate_kvar_fallback(row, phases, phase_kvar_map)
+        phase_capacitors = self._build_phase_capacitors(row, phases, phase_kvar_map)
 
-        # Determine connection type for voltage type
-        connection = row.get("Connection", "Y")
-        if connection in ("Y", "YNG"):
-            voltage_type = VoltageTypes.LINE_TO_GROUND
-        else:
-            voltage_type = VoltageTypes.LINE_TO_LINE
-
-        def _safe_float(value, default=0.0):
-            try:
-                if value is None or value == "":
-                    return default
-                return float(value)
-            except (TypeError, ValueError):
-                return default
-
-        # Build phase capacitors from actual phase-specific kvar values when available,
-        # otherwise derive from aggregate CYME fields for legacy schemas.
-        phase_capacitors = []
-        phase_kvar_map = {
-            Phase.A: _safe_float(row.get("FixedKVARA", 0.0)),
-            Phase.B: _safe_float(row.get("FixedKVARB", 0.0)),
-            Phase.C: _safe_float(row.get("FixedKVARC", 0.0)),
-        }
-
-        if all(value <= 0 for value in phase_kvar_map.values()):
-            three_phase_kvar = _safe_float(row.get("ThreePhaseKVAR", 0.0))
-            kvar = _safe_float(row.get("KVAR", 0.0))
-
-            if len(phases) > 0:
-                if three_phase_kvar > 0:
-                    per_phase_kvar = three_phase_kvar / len(phases)
-                elif kvar > 0:
-                    # CYME SHUNT CAPACITOR SETTING commonly stores per-phase
-                    # kvar in KVAR for multi-phase rows (e.g. Phase=ABC).
-                    per_phase_kvar = kvar
-                else:
-                    per_phase_kvar = 0.0
-
-                if per_phase_kvar > 0:
-                    for phase in phases:
-                        phase_kvar_map[phase] = per_phase_kvar
-
-        for phase in phases:
-            kvar_value = phase_kvar_map[phase]
-            # Only create phase capacitor if it has non-zero kvar
-            if kvar_value > 0:
-                phase_capacitor = PhaseCapacitorEquipment(
-                    name=self._phase_name(row, phase),
-                    rated_reactive_power=ReactivePower(kvar_value, "kilovar"),
-                    num_banks_on=1,  # Assume 1 bank is on
-                )
-                phase_capacitors.append(phase_capacitor)
-
-        # Create the equipment object with actual values
         equipment = CapacitorEquipment(
             name=row["DeviceNumber"],
             phase_capacitors=phase_capacitors,

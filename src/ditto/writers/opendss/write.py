@@ -81,21 +81,74 @@ class Writer(AbstractWriter):
         phase_and_ground = [phase_token, *grounded]
         return base + "".join(f".{token}" for token in phase_and_ground)
 
-    def _expand_two_phase_transformer_outputs(
-        self, model: Any, model_map: Any, equipment_map: Any | None
-    ) -> tuple[list[Any], list[Any], dict[str, str]]:
+    def _should_expand_two_phase_transformer(self, model_map: Any) -> bool:
         if model_map.altdss_composition_name != "Transformer":
-            return [model_map], [equipment_map] if equipment_map is not None else [], {}
+            return False
 
         phases = model_map.opendss_dict.get("Phases")
         buses = model_map.opendss_dict.get("Bus", [])
         if phases != 2 or not buses:
-            return [model_map], [equipment_map] if equipment_map is not None else [], {}
+            return False
 
         phase_tokens = self._get_bus_phase_tokens(buses[0])
         phase_tokens = [token for token in phase_tokens if token != "0"]
-        if len(phase_tokens) != 2:
+        return len(phase_tokens) == 2
+
+    def _expand_transformer_model_for_phase(
+        self,
+        model_map: Any,
+        phase_token: str,
+        original_name: str,
+        original_xfmr_code: str | None,
+        buses: list[str],
+    ):
+        model_dict = deepcopy(model_map.opendss_dict)
+        model_dict["Name"] = f"{original_name}_{phase_token}"
+        model_dict["Phases"] = 1
+        model_dict["Bus"] = [
+            self._bus_for_single_phase(bus_entry, phase_token) for bus_entry in buses
+        ]
+        if original_xfmr_code:
+            model_dict["XfmrCode"] = f"{original_xfmr_code}_{phase_token}"
+        return self._clone_mapper_like(model_map, model_dict), model_dict["Name"]
+
+    def _convert_equipment_kvs_for_single_phase(self, equipment_dict: dict[str, Any]):
+        if "kV" not in equipment_dict or "Conn" not in equipment_dict:
+            return
+
+        converted_kvs = []
+        for kv, conn in zip(equipment_dict["kV"], equipment_dict["Conn"]):
+            if str(conn).lower() == "delta":
+                converted_kvs.append(kv)
+            else:
+                converted_kvs.append(kv / LL_LN_CONVERSION_FACTOR)
+        equipment_dict["kV"] = converted_kvs
+
+    def _expand_transformer_equipment_for_phase(
+        self,
+        equipment_map: Any,
+        phase_token: str,
+        original_xfmr_code: str | None,
+    ):
+        equipment_dict = deepcopy(equipment_map.opendss_dict)
+        equipment_name = equipment_dict.get("Name", original_xfmr_code)
+        if equipment_name:
+            equipment_dict["Name"] = f"{equipment_name}_{phase_token}"
+        equipment_dict["Phases"] = 1
+        # Two-phase OpenDSS entries are split to single-phase. Convert
+        # non-delta winding kVs from LL to LN to keep voltage semantics.
+        self._convert_equipment_kvs_for_single_phase(equipment_dict)
+        return self._clone_mapper_like(equipment_map, equipment_dict)
+
+    def _expand_two_phase_transformer_outputs(
+        self, model: Any, model_map: Any, equipment_map: Any | None
+    ) -> tuple[list[Any], list[Any], dict[str, str]]:
+        if not self._should_expand_two_phase_transformer(model_map):
             return [model_map], [equipment_map] if equipment_map is not None else [], {}
+
+        buses = model_map.opendss_dict.get("Bus", [])
+        phase_tokens = self._get_bus_phase_tokens(buses[0])
+        phase_tokens = [token for token in phase_tokens if token != "0"]
 
         original_name = model_map.opendss_dict.get("Name", "Transformer")
         original_xfmr_code = model_map.opendss_dict.get("XfmrCode")
@@ -105,35 +158,23 @@ class Writer(AbstractWriter):
         phase_to_transformer_name = {}
 
         for phase_token in phase_tokens:
-            model_dict = deepcopy(model_map.opendss_dict)
-            model_dict["Name"] = f"{original_name}_{phase_token}"
-            model_dict["Phases"] = 1
-            model_dict["Bus"] = [
-                self._bus_for_single_phase(bus_entry, phase_token) for bus_entry in buses
-            ]
-            if original_xfmr_code:
-                model_dict["XfmrCode"] = f"{original_xfmr_code}_{phase_token}"
-            phase_to_transformer_name[phase_token] = model_dict["Name"]
-            expanded_model_maps.append(self._clone_mapper_like(model_map, model_dict))
+            expanded_model_map, expanded_name = self._expand_transformer_model_for_phase(
+                model_map,
+                phase_token,
+                original_name,
+                original_xfmr_code,
+                buses,
+            )
+            phase_to_transformer_name[phase_token] = expanded_name
+            expanded_model_maps.append(expanded_model_map)
 
             if equipment_map is not None:
-                equipment_dict = deepcopy(equipment_map.opendss_dict)
-                equipment_name = equipment_dict.get("Name", original_xfmr_code)
-                if equipment_name:
-                    equipment_dict["Name"] = f"{equipment_name}_{phase_token}"
-                equipment_dict["Phases"] = 1
-                # Two-phase OpenDSS entries are split to single-phase. Convert
-                # non-delta winding kVs from LL to LN to keep voltage semantics.
-                if "kV" in equipment_dict and "Conn" in equipment_dict:
-                    converted_kvs = []
-                    for kv, conn in zip(equipment_dict["kV"], equipment_dict["Conn"]):
-                        if str(conn).lower() == "delta":
-                            converted_kvs.append(kv)
-                        else:
-                            converted_kvs.append(kv / LL_LN_CONVERSION_FACTOR)
-                    equipment_dict["kV"] = converted_kvs
                 expanded_equipment_maps.append(
-                    self._clone_mapper_like(equipment_map, equipment_dict)
+                    self._expand_transformer_equipment_for_phase(
+                        equipment_map,
+                        phase_token,
+                        original_xfmr_code,
+                    )
                 )
 
         return expanded_model_maps, expanded_equipment_maps, phase_to_transformer_name
