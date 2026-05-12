@@ -2,8 +2,8 @@
 ! Have to assume basically zero impedance regulators to match the test case
 new transformer.reg2a phases=1          windings=2   bank=reg2     buses=[9.1     9r.1]   conns=[wye wye]       kvs=[2.402 2.402] kvas=[2000 2000] XHL=.01 %LoadLoss=0.00001 ppm=0.0 
 new transformer.reg3a phases=1          windings=2   bank=reg3     buses=[25.1   25r.1]   conns=[wye wye]       kvs=[2.402 2.402] kvas=[2000 2000] XHL=.01 %LoadLoss=0.00001 ppm=0.0 
-new transformer.reg4a phases=1          windings=2   bank=reg4     buses=[160.1 160r.1]   conns=[wye wye]       kvs=[2.402 2.402] kvas=[2000 2000] XHL=.01 %LoadLoss=0.00001 ppm=0.0 
 new transformer.reg3c like=reg3a                     bank=reg3     buses=[25.3   25r.3]      ppm=0.0 
+new transformer.reg4a phases=1          windings=2   bank=reg4     buses=[160.1 160r.1]   conns=[wye wye]       kvs=[2.402 2.402] kvas=[2000 2000] XHL=.01 %LoadLoss=0.00001 ppm=0.0 
 new transformer.reg4b like=reg4a                     bank=reg4     buses=[160.2 160r.2]      ppm=0.0 
 new transformer.reg4c like=reg4a                     bank=reg4     buses=[160.3 160r.3]      ppm=0.0 
 

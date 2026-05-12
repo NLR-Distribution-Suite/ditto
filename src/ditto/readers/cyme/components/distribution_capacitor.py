@@ -6,11 +6,12 @@ from gdm.quantities import ReactivePower, Voltage
 from gdm.distribution.equipment.phase_capacitor_equipment import PhaseCapacitorEquipment
 from gdm.distribution.equipment.capacitor_equipment import CapacitorEquipment
 from loguru import logger
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class DistributionCapacitorMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Network"
     cyme_section = "SHUNT CAPACITOR SETTING"
@@ -44,6 +45,15 @@ class DistributionCapacitorMapper(CymeMapper):
             phases.append(Phase.B)
         if "FixedKVARC" in row and float(row.get("FixedKVARC", 0.0)) > 0:
             phases.append(Phase.C)
+
+        # Some CYME datasets (e.g. 13-node sample) encode capacitor phase in
+        # the `Phase` column and kvar in aggregate `KVAR`/`ThreePhaseKVAR`.
+        # Fall back to section phase parsing when per-phase kvar columns are
+        # not present or all zero.
+        if phases == []:
+            phase_text = str(row.get("Phase", "")).strip().upper()
+            phase_map = {"A": Phase.A, "B": Phase.B, "C": Phase.C}
+            phases = [phase_map[ch] for ch in ("A", "B", "C") if ch in phase_text]
 
         if phases == []:
             raise ValueError(
@@ -89,13 +99,40 @@ class DistributionCapacitorMapper(CymeMapper):
         else:
             voltage_type = VoltageTypes.LINE_TO_LINE
 
-        # Build phase capacitors from actual phase-specific kvar values
+        def _safe_float(value, default=0.0):
+            try:
+                if value is None or value == "":
+                    return default
+                return float(value)
+            except (TypeError, ValueError):
+                return default
+
+        # Build phase capacitors from actual phase-specific kvar values when available,
+        # otherwise derive from aggregate CYME fields for legacy schemas.
         phase_capacitors = []
         phase_kvar_map = {
-            Phase.A: float(row.get("FixedKVARA", 0.0)),
-            Phase.B: float(row.get("FixedKVARB", 0.0)),
-            Phase.C: float(row.get("FixedKVARC", 0.0)),
+            Phase.A: _safe_float(row.get("FixedKVARA", 0.0)),
+            Phase.B: _safe_float(row.get("FixedKVARB", 0.0)),
+            Phase.C: _safe_float(row.get("FixedKVARC", 0.0)),
         }
+
+        if all(value <= 0 for value in phase_kvar_map.values()):
+            three_phase_kvar = _safe_float(row.get("ThreePhaseKVAR", 0.0))
+            kvar = _safe_float(row.get("KVAR", 0.0))
+
+            if len(phases) > 0:
+                if three_phase_kvar > 0:
+                    per_phase_kvar = three_phase_kvar / len(phases)
+                elif kvar > 0:
+                    # CYME SHUNT CAPACITOR SETTING commonly stores per-phase
+                    # kvar in KVAR for multi-phase rows (e.g. Phase=ABC).
+                    per_phase_kvar = kvar
+                else:
+                    per_phase_kvar = 0.0
+
+                if per_phase_kvar > 0:
+                    for phase in phases:
+                        phase_kvar_map[phase] = per_phase_kvar
 
         for phase in phases:
             kvar_value = phase_kvar_map[phase]
@@ -115,9 +152,6 @@ class DistributionCapacitorMapper(CymeMapper):
             rated_voltage=rated_voltage,
             voltage_type=voltage_type,
         )
-        from rich import print
-
-        print(equipment)
         return equipment
 
     def _phase_name(self, row, phase):

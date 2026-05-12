@@ -9,11 +9,12 @@ from gdm.distribution.controllers.distribution_recloser_controller import (
 )
 from gdm.distribution.enums import Phase
 from ditto.readers.cyme.constants import DEFAULT_BRANCH_LENGTH
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class MatrixImpedanceRecloserMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Network"
     cyme_section = "RECLOSER SETTING"

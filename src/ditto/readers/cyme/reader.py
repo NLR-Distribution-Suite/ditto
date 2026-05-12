@@ -12,8 +12,10 @@ from collections import defaultdict, deque
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.components import DistributionVoltageSource
 from gdm.distribution.components.distribution_transformer import DistributionTransformer
-from gdm.distribution.components.distribution_capacitor import DistributionCapacitor
+from gdm.distribution.enums import ConnectionType, VoltageTypes
+from gdm.quantities import Voltage
 from ditto.constants import LL_LN_CONVERSION_FACTOR
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class Reader(AbstractReader):
@@ -49,8 +51,10 @@ class Reader(AbstractReader):
         load_model_id=None,
         substation_names=None,
         feeder_names=None,
+        raise_on_validation_error=False,
     ):
         self.validation_errors = []
+        self.raise_on_validation_error = raise_on_validation_error
         self.system = DistributionSystem(auto_add_composed_components=True)
         self.read(
             network_file,
@@ -60,6 +64,14 @@ class Reader(AbstractReader):
             substation_names=substation_names,
             feeder_names=feeder_names,
         )
+
+    def _get_unit_system(self, network_file):
+        # Default to SI if unit system not specified in file
+        with open(network_file, "r") as f:
+            for line in f:
+                if f"[{ModelUnitSystem.SI.value}]" in line:
+                    return ModelUnitSystem.SI
+        return ModelUnitSystem.IMPERIAL
 
     def read(
         self,
@@ -109,6 +121,8 @@ class Reader(AbstractReader):
             .to_dict()
         )
 
+        unit_system = self._get_unit_system(network_file)
+
         for component_type in self.component_types:
             logger.info(f"Parsing Type: {component_type}")
             mapper_name = component_type + "Mapper"
@@ -116,7 +130,7 @@ class Reader(AbstractReader):
                 logger.warning(f"Mapper {mapper_name} not found. Skipping.")
                 continue
 
-            mapper = getattr(cyme_mapper, mapper_name)(self.system)
+            mapper = getattr(cyme_mapper, mapper_name)(self.system, units=unit_system)
 
             cyme_file = mapper.cyme_file
             cyme_section = mapper.cyme_section
@@ -198,7 +212,6 @@ class Reader(AbstractReader):
                         cyme_section,
                     ],
                 }
-
                 args = argument_handler.get(mapper_name, lambda: [])()
 
                 def parse_row(row):
@@ -217,19 +230,25 @@ class Reader(AbstractReader):
                             for c in components
                             for item in (c if isinstance(c, list) else [c])
                         ]
-                        self.system.add_components(*components)
+                        for c in components:
+                            if not self.system.has_component(c):
+                                self.system.add_component(c)
+
+                        # self.system.add_components(*components)
                 else:
                     components = data.apply(parse_row, axis=1)
                     components = [c for c in components if c is not None]
                     components = [
                         item for c in components for item in (c if isinstance(c, list) else [c])
                     ]
-                    self.system.add_components(*components)
+                    for c in components:
+                        if not self.system.has_component(c):
+                            self.system.add_component(c)
+                    # self.system.add_components(*components)
 
         self.assign_bus_voltages()
 
         self.serialize_parallel_branches()
-        self._correct_capacitor_bus_voltages()
 
         if substation_names is not None or feeder_names is not None:
             self.system = network_truncation(
@@ -239,7 +258,10 @@ class Reader(AbstractReader):
 
         for component_type in self.system.get_component_types():
             components = self.system.get_components(component_type)
-            self._add_components(components)
+            for c in components:
+                if not self.system.has_component(c):
+                    self.system.add_component(c)
+            # self._add_components(components)
 
         self._validate_model()
 
@@ -277,8 +299,13 @@ class Reader(AbstractReader):
 
             console = Console()
             console.print(error_table)
-            raise Exception(
-                "Validations errors occurred when running the script. See the table above"
+            if self.raise_on_validation_error:
+                raise Exception(
+                    "Validations errors occurred when running the script. See the table above"
+                )
+            logger.warning(
+                f"Validation warnings detected in CYME reader: {len(self.validation_errors)} issue(s). "
+                "Continuing because raise_on_validation_error=False."
             )
 
     def _prepare_data(
@@ -298,6 +325,7 @@ class Reader(AbstractReader):
                     raise ValueError(
                         f"Multiple LoadModelIDs found in load data: {data['LoadModelID'].unique()}. Please specify load_model_id"
                     )
+
         else:
             raise ValueError(f"Unknown CYME file {cyme_file}")
 
@@ -344,6 +372,17 @@ class Reader(AbstractReader):
                             voltage = winding.rated_voltage
                             voltage_type = winding.voltage_type
 
+                            if (
+                                winding.connection_type == ConnectionType.STAR
+                                and winding.num_phases > 1
+                                and voltage_type == VoltageTypes.LINE_TO_LINE
+                            ):
+                                voltage = Voltage(
+                                    voltage.to("kilovolt").magnitude / LL_LN_CONVERSION_FACTOR,
+                                    "kilovolt",
+                                )
+                                voltage_type = VoltageTypes.LINE_TO_GROUND
+
                             if i == j and voltage != current_voltage:
                                 bus.voltage_type = voltage_type
                                 bus.rated_voltage = voltage
@@ -364,27 +403,13 @@ class Reader(AbstractReader):
         voltage_sources = list(self.system.get_components(DistributionVoltageSource))
 
         for vsource in voltage_sources:
-            vsource.bus.rated_voltage = (
-                vsource.equipment.sources[0].voltage * LL_LN_CONVERSION_FACTOR
-                if len(vsource.phases) > 1
-                else vsource.equipment.sources[0].voltage
-            )
+            # Source equipment stores per-phase voltage as L-N.
+            # Bus rated_voltage is propagated in L-N form and converted in writers when needed.
+            vsource.bus.rated_voltage = vsource.equipment.sources[0].voltage
+            vsource.bus.voltage_type = VoltageTypes.LINE_TO_GROUND
             bus_queue.append(vsource.bus.name)
 
         return bus_queue
-
-    def _correct_capacitor_bus_voltages(self):
-        for capacitor in self.system.get_components(DistributionCapacitor):
-            if capacitor.bus is None or capacitor.bus.rated_voltage is None:
-                continue
-
-            # CYME capacitor kV values align with LN base; keep capacitor-local
-            # bus voltage on that base without altering the shared system bus.
-            capacitor.bus = capacitor.bus.model_copy(
-                update={
-                    "rated_voltage": capacitor.bus.rated_voltage / LL_LN_CONVERSION_FACTOR,
-                }
-            )
 
     def _create_bus_obj_map(self):
         bus_obj_map = defaultdict(list)

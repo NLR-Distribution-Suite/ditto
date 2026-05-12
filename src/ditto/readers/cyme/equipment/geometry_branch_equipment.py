@@ -4,11 +4,12 @@ from gdm.quantities import Current, Distance, ResistancePULength
 from ditto.readers.cyme.cyme_mapper import CymeMapper
 from gdm.distribution.equipment.geometry_branch_equipment import GeometryBranchEquipment
 from gdm.distribution.equipment.bare_conductor_equipment import BareConductorEquipment
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class GeometryBranchEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Equipment"
     cyme_section = "LINE"
@@ -52,7 +53,10 @@ class GeometryBranchEquipmentMapper(CymeMapper):
             if neutral_y != "":
                 y_n = float(neutral_y)
                 vertical_positions.append(y_n)
-            return Distance(vertical_positions, "feet").to("m")
+            if self.units == ModelUnitSystem.SI:
+                return Distance(vertical_positions, "meter")
+            else:
+                return Distance(vertical_positions, "feet")
         return None
 
     def map_horizontal_positions(self, row, spacing_ids):
@@ -76,7 +80,10 @@ class GeometryBranchEquipmentMapper(CymeMapper):
             if neutral_x != "":
                 x_n = float(neutral_x)
                 horizontal_positions.append(x_n)
-            return Distance(horizontal_positions, "feet").to("m")
+            if self.units == ModelUnitSystem.SI:
+                return Distance(horizontal_positions, "meter")
+            else:
+                return Distance(horizontal_positions, "feet")
         return None
 
     def map_conductors(self, row, spacing_ids):
@@ -126,8 +133,8 @@ class GeometryBranchEquipmentMapper(CymeMapper):
 
 
 class BareConductorEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Equipment"
     cyme_section = "CONDUCTOR"
@@ -158,13 +165,19 @@ class BareConductorEquipmentMapper(CymeMapper):
         conductor_diameter = float(row["Diameter"])
         if conductor_diameter == 0.0:
             conductor_diameter = 1e-05
-        return Distance(conductor_diameter, "inch").to("mm")
+        if self.units == ModelUnitSystem.SI:
+            return Distance(conductor_diameter, "cm")
+        else:
+            return Distance(conductor_diameter, "inch")
 
     def map_conductor_gmr(self, row):
         conductor_gmr_value = float(row["GMR"])
         if conductor_gmr_value == 0.0:
             conductor_gmr_value = 1e-05
-        conductor_gmr = Distance(conductor_gmr_value, "inch").to("mm")
+        if self.units == ModelUnitSystem.SI:
+            conductor_gmr = Distance(conductor_gmr_value, "cm")
+        else:
+            conductor_gmr = Distance(conductor_gmr_value, "inch")
         return conductor_gmr
 
     def map_ampacity(self, row):
@@ -180,21 +193,27 @@ class BareConductorEquipmentMapper(CymeMapper):
         return emergency_ampacity
 
     def map_ac_resistance(self, row):
-        ac_resistance = ResistancePULength(float(row["R25"]), "ohm/mile").to("ohm/km")
+        if self.units == ModelUnitSystem.SI:
+            ac_resistance = ResistancePULength(float(row["R25"]), "ohm/km")
+        else:
+            ac_resistance = ResistancePULength(float(row["R25"]), "ohm/mile")
         if ac_resistance == 0.0:
             ac_resistance = DEFAULT_BRANCH_RESISTANCE
         return ac_resistance
 
     def map_dc_resistance(self, row):
-        dc_resistance = ResistancePULength(float(row["R25"]), "ohm/mile").to("ohm/km")
+        if self.units == ModelUnitSystem.SI:
+            dc_resistance = ResistancePULength(float(row["R25"]), "ohm/km")
+        else:
+            dc_resistance = ResistancePULength(float(row["R25"]), "ohm/mile")
         if dc_resistance == 0.0:
             dc_resistance = DEFAULT_BRANCH_RESISTANCE
         return dc_resistance
 
 
 class GeometryBranchByPhaseEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Network"
     cyme_section = "OVERHEAD BYPHASE SETTING"
@@ -245,7 +264,10 @@ class GeometryBranchByPhaseEquipmentMapper(CymeMapper):
             if neutral_y != "" and neutral_conductor_name != "NONE":
                 y_n = float(neutral_y)
                 vertical_positions.append(y_n)
-            return Distance(vertical_positions, "feet").to("m")
+            if self.units == ModelUnitSystem.SI:
+                return Distance(vertical_positions, "meter")
+            else:
+                return Distance(vertical_positions, "feet")
         return None
 
     def map_horizontal_positions(self, row, spacing_ids):
@@ -276,7 +298,10 @@ class GeometryBranchByPhaseEquipmentMapper(CymeMapper):
             if neutral_x != "" and neutral_conductor_name != "NONE":
                 x_n = float(neutral_x)
                 horizontal_positions.append(x_n)
-            return Distance(horizontal_positions, "feet").to("m")
+            if self.units == ModelUnitSystem.SI:
+                return Distance(horizontal_positions, "meter")
+            else:
+                return Distance(horizontal_positions, "feet")
         return None
 
     def map_conductors(self, row, spacing_ids):

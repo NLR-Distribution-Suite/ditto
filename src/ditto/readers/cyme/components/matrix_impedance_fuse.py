@@ -6,11 +6,12 @@ from gdm.distribution.components.matrix_impedance_fuse import MatrixImpedanceFus
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.enums import Phase
 from ditto.readers.cyme.constants import DEFAULT_BRANCH_LENGTH
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class MatrixImpedanceFuseMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Network"
     cyme_section = "FUSE SETTING"

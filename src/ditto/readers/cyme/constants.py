@@ -1,4 +1,11 @@
 from gdm.quantities import Distance, Current, ResistancePULength
+from enum import StrEnum
+
+
+class ModelUnitSystem(StrEnum):
+    SI = "SI"
+    IMPERIAL = "IMPERIAL"
+
 
 DEFAULT_BRANCH_LENGTH = Distance(0.001, "km")
 
@@ -24,4 +31,4 @@ DEFAULT_C_MATRIX = [
 
 DEFAULT_BRANCH_AMPACITY = Current(600.0, "A")
 
-DEFAULT_BRANCH_RESISTANCE = ResistancePULength(0.555000, "ohm/mile").to("ohm/km")
+DEFAULT_BRANCH_RESISTANCE = ResistancePULength(0.555000, "ohm/mile")

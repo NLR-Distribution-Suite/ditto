@@ -12,11 +12,12 @@ from gdm.distribution.equipment.distribution_transformer_equipment import (
 )
 from gdm.distribution.enums import ConnectionType, Phase, VoltageTypes
 from gdm.quantities import ApparentPower, Current, Voltage
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class DistributionRegulatorMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Network"
     cyme_section = "REGULATOR SETTING"
@@ -115,7 +116,7 @@ class DistributionRegulatorMapper(CymeMapper):
         windings = [
             WindingEquipment.model_construct(
                 name=f"{row['SectionID']}_primary",
-                resistance=0.1,
+                resistance=0.001,
                 is_grounded=connection == ConnectionType.STAR,
                 rated_voltage=winding_voltage,
                 voltage_type=primary_voltage_type,
@@ -129,7 +130,7 @@ class DistributionRegulatorMapper(CymeMapper):
             ),
             WindingEquipment.model_construct(
                 name=f"{row['SectionID']}_secondary",
-                resistance=0.1,
+                resistance=0.001,
                 is_grounded=connection == ConnectionType.STAR,
                 rated_voltage=winding_voltage,
                 voltage_type=secondary_voltage_type,
@@ -146,10 +147,10 @@ class DistributionRegulatorMapper(CymeMapper):
         return DistributionTransformerEquipment.model_construct(
             name=f"{row.get('EqID', 'REGULATOR')}_{regulator_name}",
             pct_no_load_loss=0.0,
-            pct_full_load_loss=0.0,
+            pct_full_load_loss=0.001,
             windings=windings,
             coupling_sequences=[SequencePair(0, 1)],
-            winding_reactances=[1.0],
+            winding_reactances=[0.001],
             is_center_tapped=False,
         )
 

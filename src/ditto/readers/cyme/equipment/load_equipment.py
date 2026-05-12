@@ -4,11 +4,12 @@ from gdm.distribution.equipment.phase_load_equipment import PhaseLoadEquipment
 from gdm.quantities import ActivePower, ReactivePower
 from gdm.distribution.enums import ConnectionType
 from loguru import logger
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class LoadEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Load"
     cyme_section = "LOADS"
@@ -66,7 +67,7 @@ class PhaseLoadEquipmentMapper(CymeMapper):
         "Rotating_Machine": (1, 0, 0),
     }
 
-    def __init__(self, system):
+    def __init__(self, system, units=ModelUnitSystem):
         super().__init__(system)
 
     cyme_file = "Load"

@@ -4,11 +4,12 @@ from gdm.distribution.equipment.phase_capacitor_equipment import PhaseCapacitorE
 from gdm.distribution.equipment.capacitor_equipment import CapacitorEquipment
 from gdm.distribution.enums import VoltageTypes
 from gdm.quantities import Voltage
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class CapacitorEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Equipment"
     cyme_section = "SHUNT CAPACITOR"
@@ -48,8 +49,8 @@ class CapacitorEquipmentMapper(CymeMapper):
 
 
 class PhaseCapacitorEquipmentMapper(CymeMapper):
-    def __init__(self, system, num_banks_on):
-        super().__init__(system)
+    def __init__(self, system, num_banks_on, units=ModelUnitSystem):
+        super().__init__(system, units=units)
         self.num_banks_on = num_banks_on
 
     cyme_file = "Equipment"
