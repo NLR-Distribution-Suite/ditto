@@ -30,22 +30,29 @@ class DistributionLoadMapper(OpenDSSMapper):
     def map_bus(self):
         num_phases = len(self.model.phases)
         self.opendss_dict["Bus1"] = self.get_opendss_safe_name(self.model.bus.name)
-        for phase in self.model.phases:
-            self.opendss_dict["Bus1"] += self.phase_map[phase]
+
+        # For delta-connected loads, single phases need line-to-line designation
+        # A->1.2, B->2.3, C->3.1
+        if num_phases == 1 and self.model.equipment.connection_type == ConnectionType.DELTA:
+            phase = list(self.model.phases)[0]
+            phase_map = {
+                "A": ".1.2",
+                "B": ".2.3",
+                "C": ".3.1",
+            }
+            self.opendss_dict["Bus1"] += phase_map.get(phase.name, self.phase_map[phase])
+        else:
+            for phase in self.model.phases:
+                self.opendss_dict["Bus1"] += self.phase_map[phase]
+
         # TODO: Should we include the phases its connected to here?
 
         nom_voltage = self.model.bus.rated_voltage.to("kV").magnitude
-        voltage_type = self.model.bus.voltage_type
 
-        nom_voltage = (
-            nom_voltage / LL_LN_CONVERSION_FACTOR
-            if voltage_type == "line-to-line"
-            else nom_voltage
-        )
-
-        self.opendss_dict["kV"] = (
-            nom_voltage if num_phases == 1 else nom_voltage * LL_LN_CONVERSION_FACTOR
-        )
+        if num_phases == 1 and self.model.equipment.connection_type == ConnectionType.STAR:
+            self.opendss_dict["kV"] = nom_voltage
+        else:
+            self.opendss_dict["kV"] = nom_voltage * LL_LN_CONVERSION_FACTOR
 
     def map_phases(self):
         if (

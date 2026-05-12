@@ -56,3 +56,8 @@ def test_all_types(tmp_path):
     # Verify output files were produced
     dss_files = list(Path(tmp_path).rglob("*.dss"))
     assert len(dss_files) > 0, "No .dss files produced for full system write"
+
+
+def test_normalize_length_unit_enum_tokens():
+    text = "new LineGeometry.g1 Units=LengthUnit.m Cond=1"
+    assert Writer._normalize_dss_string(text) == "new LineGeometry.g1 Units=m Cond=1"

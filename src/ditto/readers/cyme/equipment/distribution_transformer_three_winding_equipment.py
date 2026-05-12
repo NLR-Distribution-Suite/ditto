@@ -3,14 +3,15 @@ from gdm.distribution.equipment.distribution_transformer_equipment import (
     DistributionTransformerEquipment,
 )
 from gdm.distribution.equipment.distribution_transformer_equipment import WindingEquipment
-from gdm.quantities import ActivePower, Voltage
+from gdm.quantities import ApparentPower, Voltage
 from gdm.distribution.common.sequence_pair import SequencePair
 from gdm.distribution.enums import ConnectionType, VoltageTypes
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class DistributionTransformerThreeWindingEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Equipment"
     cyme_section = "THREE WINDING TRANSFORMER"
@@ -143,8 +144,8 @@ class DistributionTransformerThreeWindingEquipmentMapper(CymeMapper):
 
 
 class ThreeWindingEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Equipment"
     cyme_section = "THREE WINDING TRANSFORMER"
@@ -270,11 +271,11 @@ class ThreeWindingEquipmentMapper(CymeMapper):
 
     def map_rated_power(self, row, winding_number):
         if winding_number == 1:
-            power = ActivePower(float(row["PrimaryRatedCapacity"]), "kilowatt")
+            power = ApparentPower(float(row["PrimaryRatedCapacity"]), "kilova")
         elif winding_number == 2:
-            power = ActivePower(float(row["SecondaryRatedCapacity"]), "kilowatt")
+            power = ApparentPower(float(row["SecondaryRatedCapacity"]), "kilova")
         elif winding_number == 3:
-            power = ActivePower(float(row["TertiaryRatedCapacity"]), "kilowatt")
+            power = ApparentPower(float(row["TertiaryRatedCapacity"]), "kilova")
         return power
 
     def map_num_phases(self, row):

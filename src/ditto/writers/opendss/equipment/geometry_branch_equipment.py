@@ -1,6 +1,7 @@
 from gdm.distribution.equipment import BareConductorEquipment, ConcentricCableEquipment
 from gdm.distribution.enums import WireInsulationType
 from gdm.distribution import DistributionSystem
+from gdm.distribution.components.geometry_branch import GeometryBranch
 from infrasys import Component
 
 
@@ -33,7 +34,26 @@ class GeometryBranchEquipmentMapper(OpenDSSMapper):
                 raise ValueError(f"{x_unit} not mapped for OpenDSS")
             units.append(self.length_units_map[x_unit])
         self.opendss_dict["Units"] = units
-        self.opendss_dict["NConds"] = len(self.model.conductors)
+
+        nconds = len(self.model.conductors)
+        self.opendss_dict["NConds"] = nconds
+
+        # Infer phase count from branches that use this geometry.
+        # This avoids misclassifying two-phase (e.g. A-C) lines as 1-phase+neutral.
+        nphases = 0
+        for branch in self.system.get_components(GeometryBranch):
+            if branch.equipment and branch.equipment.name == self.model.name:
+                nphases = max(nphases, len(branch.phases))
+
+        if nphases == 0:
+            # Fallback for legacy paths where geometry is not referenced directly.
+            nphases = nconds - 1 if nconds > 1 else 1
+
+        self.opendss_dict["NPhases"] = nphases
+
+        # reduce=yes only if Nphases < NConds (i.e., when there's a neutral conductor)
+        if nphases < nconds:
+            self.opendss_dict["Reduce"] = True
 
     def map_horizontal_positions(self):
         all_x = []

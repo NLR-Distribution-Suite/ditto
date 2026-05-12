@@ -4,17 +4,21 @@ from ditto.readers.cyme.equipment.geometry_branch_equipment import GeometryBranc
 from gdm.distribution.components.geometry_branch import GeometryBranch
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.enums import Phase
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class GeometryBranchMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Network"
     cyme_section = ["OVERHEADLINE SETTING", "OVERHEAD BYPHASE SETTING"]
 
     def parse(self, row, used_sections, section_id_sections, cyme_section):
         name = self.map_name(row)
+        if name in used_sections:
+            return None
+
         buses = self.map_buses(row, section_id_sections)
         length = self.map_length(row)
         equipment = self.map_equipment(row, cyme_section)
@@ -40,9 +44,15 @@ class GeometryBranchMapper(CymeMapper):
         return [from_bus, to_bus]
 
     def map_length(self, row):
-        length = Distance(float(row["Length"]), "foot").to("km")
+        if self.units == ModelUnitSystem.SI:
+            length = Distance(float(row["Length"]), "meter")
+        else:
+            length = Distance(float(row["Length"]), "foot")
         if length <= 0:
-            length = Distance(0.001, "km")
+            if self.units == ModelUnitSystem.SI:
+                length = Distance(1e-6, "m")
+            else:
+                length = Distance(1e-6, "ft")
         return length
 
     def map_phases(self, row, section_id_sections, equipment, buses):
@@ -56,17 +66,7 @@ class GeometryBranchMapper(CymeMapper):
             phases.append(Phase.B)
         if "C" in phase:
             phases.append(Phase.C)
-
-        if len(phases) == len(equipment.conductors):
-            return phases
-        elif len(phase) == len(equipment.conductors) - 1:
-            phases.append(Phase.N)
-            for bus in buses:
-                if bus.phases is not None and Phase.N not in bus.phases:
-                    bus.phases.append(Phase.N)
-            return phases
-        else:
-            return phases
+        return phases
 
     def map_equipment(self, row, cyme_section):
         line_id = (

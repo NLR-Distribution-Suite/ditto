@@ -5,11 +5,12 @@ from gdm.distribution.equipment.matrix_impedance_recloser_equipment import (
 )
 from gdm.distribution.enums import LineType
 from ditto.readers.cyme.constants import DEFAULT_C_MATRIX, DEFAULT_X_MATRIX, DEFAULT_R_MATRIX
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class MatrixImpedanceRecloserEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Equipment"
     cyme_section = "RECLOSER"

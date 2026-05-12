@@ -1,6 +1,8 @@
 from collections import defaultdict
+from copy import deepcopy
 from io import TextIOWrapper
 from pathlib import Path
+import re
 from typing import Any
 
 from infrasys import NonSequentialTimeSeries, SingleTimeSeries
@@ -23,9 +25,21 @@ from ditto.writers.abstract_writer import AbstractWriter
 from ditto.enumerations import OpenDSSFileTypes
 import ditto.writers.opendss as opendss_mapper
 from ditto.constants import LL_LN_CONVERSION_FACTOR
+from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 
 
 class Writer(AbstractWriter):
+    @staticmethod
+    def _normalize_dss_string(dss_string: str) -> str:
+        """Normalize enum-style unit tokens emitted by altdss_schema.
+
+        OpenDSS expects plain unit strings (for example, ``m``), but some
+        schema objects currently emit enum-qualified values (for example,
+        ``LengthUnit.m``). Strip the enum prefix in the final DSS text.
+        """
+
+        return re.sub(r"\bLengthUnit\.([A-Za-z_][A-Za-z0-9_]*)\b", r"\1", dss_string)
+
     def _get_dss_string(self, model_map: Any) -> str:
         # Example model_map is instance of DistributionBusMapper
         altdss_class = getattr(altdss_models, model_map.altdss_name)
@@ -38,7 +52,132 @@ class Writer(AbstractWriter):
             dss_string = altdss_composition_object.dumps_dss()
         else:
             dss_string = altdss_object.dumps_dss()
-        return dss_string
+        return self._normalize_dss_string(dss_string)
+
+    def _clone_mapper_like(self, model_map: Any, opendss_dict: dict[str, Any]) -> Any:
+        clone = type("MapperClone", (), {})()
+        clone.altdss_name = model_map.altdss_name
+        clone.altdss_composition_name = model_map.altdss_composition_name
+        clone.opendss_file = model_map.opendss_file
+        clone.substation = getattr(model_map, "substation", "")
+        clone.feeder = getattr(model_map, "feeder", "")
+        clone.opendss_dict = opendss_dict
+        return clone
+
+    def _get_bus_phase_tokens(self, bus_entry: str) -> list[str]:
+        parts = bus_entry.split(".")
+        if len(parts) <= 1:
+            return []
+        return [token for token in parts[1:] if token]
+
+    def _bus_for_single_phase(self, bus_entry: str, phase_token: str) -> str:
+        parts = bus_entry.split(".")
+        if len(parts) <= 1:
+            return f"{bus_entry}.{phase_token}"
+
+        base = parts[0]
+        existing_tokens = [token for token in parts[1:] if token]
+        grounded = [token for token in existing_tokens if token == "0"]
+        phase_and_ground = [phase_token, *grounded]
+        return base + "".join(f".{token}" for token in phase_and_ground)
+
+    def _should_expand_two_phase_transformer(self, model_map: Any) -> bool:
+        if model_map.altdss_composition_name != "Transformer":
+            return False
+
+        phases = model_map.opendss_dict.get("Phases")
+        buses = model_map.opendss_dict.get("Bus", [])
+        if phases != 2 or not buses:
+            return False
+
+        phase_tokens = self._get_bus_phase_tokens(buses[0])
+        phase_tokens = [token for token in phase_tokens if token != "0"]
+        return len(phase_tokens) == 2
+
+    def _expand_transformer_model_for_phase(
+        self,
+        model_map: Any,
+        phase_token: str,
+        original_name: str,
+        original_xfmr_code: str | None,
+        buses: list[str],
+    ):
+        model_dict = deepcopy(model_map.opendss_dict)
+        model_dict["Name"] = f"{original_name}_{phase_token}"
+        model_dict["Phases"] = 1
+        model_dict["Bus"] = [
+            self._bus_for_single_phase(bus_entry, phase_token) for bus_entry in buses
+        ]
+        if original_xfmr_code:
+            model_dict["XfmrCode"] = f"{original_xfmr_code}_{phase_token}"
+        return self._clone_mapper_like(model_map, model_dict), model_dict["Name"]
+
+    def _convert_equipment_kvs_for_single_phase(self, equipment_dict: dict[str, Any]):
+        if "kV" not in equipment_dict or "Conn" not in equipment_dict:
+            return
+
+        converted_kvs = []
+        for kv, conn in zip(equipment_dict["kV"], equipment_dict["Conn"]):
+            if str(conn).lower() == "delta":
+                converted_kvs.append(kv)
+            else:
+                converted_kvs.append(kv / LL_LN_CONVERSION_FACTOR)
+        equipment_dict["kV"] = converted_kvs
+
+    def _expand_transformer_equipment_for_phase(
+        self,
+        equipment_map: Any,
+        phase_token: str,
+        original_xfmr_code: str | None,
+    ):
+        equipment_dict = deepcopy(equipment_map.opendss_dict)
+        equipment_name = equipment_dict.get("Name", original_xfmr_code)
+        if equipment_name:
+            equipment_dict["Name"] = f"{equipment_name}_{phase_token}"
+        equipment_dict["Phases"] = 1
+        # Two-phase OpenDSS entries are split to single-phase. Convert
+        # non-delta winding kVs from LL to LN to keep voltage semantics.
+        self._convert_equipment_kvs_for_single_phase(equipment_dict)
+        return self._clone_mapper_like(equipment_map, equipment_dict)
+
+    def _expand_two_phase_transformer_outputs(
+        self, model: Any, model_map: Any, equipment_map: Any | None
+    ) -> tuple[list[Any], list[Any], dict[str, str]]:
+        if not self._should_expand_two_phase_transformer(model_map):
+            return [model_map], [equipment_map] if equipment_map is not None else [], {}
+
+        buses = model_map.opendss_dict.get("Bus", [])
+        phase_tokens = self._get_bus_phase_tokens(buses[0])
+        phase_tokens = [token for token in phase_tokens if token != "0"]
+
+        original_name = model_map.opendss_dict.get("Name", "Transformer")
+        original_xfmr_code = model_map.opendss_dict.get("XfmrCode")
+
+        expanded_model_maps = []
+        expanded_equipment_maps = []
+        phase_to_transformer_name = {}
+
+        for phase_token in phase_tokens:
+            expanded_model_map, expanded_name = self._expand_transformer_model_for_phase(
+                model_map,
+                phase_token,
+                original_name,
+                original_xfmr_code,
+                buses,
+            )
+            phase_to_transformer_name[phase_token] = expanded_name
+            expanded_model_maps.append(expanded_model_map)
+
+            if equipment_map is not None:
+                expanded_equipment_maps.append(
+                    self._expand_transformer_equipment_for_phase(
+                        equipment_map,
+                        phase_token,
+                        original_xfmr_code,
+                    )
+                )
+
+        return expanded_model_maps, expanded_equipment_maps, phase_to_transformer_name
 
     def prepare_folder(self, output_path):
         directory = Path(output_path)
@@ -77,6 +216,7 @@ class Writer(AbstractWriter):
         seen_controller = set()
         seen_profile = set()
 
+        output_folder = output_path
         output_redirect = Path("")
         self._write_profiles(output_path, seen_profile, output_redirect, base_redirect)
         for component_type in component_types:
@@ -104,13 +244,12 @@ class Writer(AbstractWriter):
                 model_map = mapper(model, self.system)
                 model_map.populate_opendss_dictionary()
 
-                dss_string = self._get_dss_string(model_map)
-                if dss_string.startswith("new Vsource"):
-                    dss_string = dss_string.replace("new Vsource", "Clear\n\nNew Circuit")
-                equipment_dss_string = None
-                equipment_map: list[Path] = None
-                controller_dss_string = None
-                controller_map: list[Path] = None
+                # Skip components with empty mappings (e.g., unused intermediate buses)
+                if not model_map.opendss_dict:
+                    continue
+
+                equipment_map = None
+                controller_outputs = []
 
                 if hasattr(model, "equipment"):
                     equipment_mapper_name = model.equipment.__class__.__name__ + "Mapper"
@@ -122,7 +261,12 @@ class Writer(AbstractWriter):
                         equipment_mapper = getattr(opendss_mapper, equipment_mapper_name)
                         equipment_map = equipment_mapper(model.equipment, self.system)
                         equipment_map.populate_opendss_dictionary()
-                        equipment_dss_string = self._get_dss_string(equipment_map)
+
+                (
+                    model_maps_to_write,
+                    equipment_maps_to_write,
+                    phase_to_transformer_name,
+                ) = self._expand_two_phase_transformer_outputs(model, model_map, equipment_map)
 
                 if hasattr(model, "controllers"):
                     for controller in model.controllers:
@@ -133,9 +277,31 @@ class Writer(AbstractWriter):
                             )
                         else:
                             controller_mapper = getattr(opendss_mapper, controller_mapper_name)
-                            controller_map = controller_mapper(controller, model.name, self.system)
+                            controller_xfmr_name = model.name
+                            if phase_to_transformer_name:
+                                controlled_phase = getattr(
+                                    controller.controlled_phase,
+                                    "value",
+                                    str(controller.controlled_phase),
+                                )
+                                controller_phase = OpenDSSMapper.phase_map.get(
+                                    controlled_phase, ""
+                                ).lstrip(".")
+                                if controller_phase in phase_to_transformer_name:
+                                    controller_xfmr_name = phase_to_transformer_name[
+                                        controller_phase
+                                    ]
+                                else:
+                                    controller_xfmr_name = next(
+                                        iter(phase_to_transformer_name.values())
+                                    )
+
+                            controller_map = controller_mapper(
+                                controller, controller_xfmr_name, self.system
+                            )
                             controller_map.populate_opendss_dictionary()
                             controller_dss_string = self._get_dss_string(controller_map)
+                            controller_outputs.append((controller_map, controller_dss_string))
 
                 output_folder = output_path
                 output_folder, output_redirect = self._build_directory_structure(
@@ -147,18 +313,21 @@ class Writer(AbstractWriter):
                     output_folder,
                 )
 
-                if equipment_dss_string is not None:
+                for equipment_map_to_write in equipment_maps_to_write:
+                    equipment_dss_string = self._get_dss_string(equipment_map_to_write)
                     feeder_substation_equipment = (
                         model_map.substation + model_map.feeder + equipment_dss_string
                     )
                     if feeder_substation_equipment not in seen_equipment:
                         seen_equipment.add(feeder_substation_equipment)
                         with open(
-                            output_folder / equipment_map.opendss_file, "a", encoding="utf-8"
+                            output_folder / equipment_map_to_write.opendss_file,
+                            "a",
+                            encoding="utf-8",
                         ) as fp:
                             fp.write(equipment_dss_string)
 
-                if controller_dss_string is not None:
+                for controller_map, controller_dss_string in controller_outputs:
                     feeder_substation_controller = (
                         model_map.substation + model_map.feeder + controller_dss_string
                     )
@@ -169,9 +338,16 @@ class Writer(AbstractWriter):
                         ) as fp:
                             fp.write(controller_dss_string)
 
-                # TODO: Check that there aren't multiple voltage sources for the same master file
-                with open(output_folder / model_map.opendss_file, "a", encoding="utf-8") as fp:
-                    fp.write(dss_string)
+                for model_map_to_write in model_maps_to_write:
+                    dss_string = self._get_dss_string(model_map_to_write)
+                    if dss_string.startswith("new Vsource"):
+                        dss_string = dss_string.replace("new Vsource", "Clear\n\nNew Circuit")
+
+                    # TODO: Check that there aren't multiple voltage sources for the same master file
+                    with open(
+                        output_folder / model_map_to_write.opendss_file, "a", encoding="utf-8"
+                    ) as fp:
+                        fp.write(dss_string)
 
                 if (
                     model_map.opendss_file == OpenDSSFileTypes.MASTER_FILE.value
@@ -183,16 +359,24 @@ class Writer(AbstractWriter):
                     substations_redirect[model_map.substation].add(
                         Path(model_map.feeder) / model_map.opendss_file
                     )
-                    if equipment_map is not None:
+                    for equipment_map_to_write in equipment_maps_to_write:
                         substations_redirect[model_map.substation].add(
-                            Path(model_map.feeder) / equipment_map.opendss_file
+                            Path(model_map.feeder) / equipment_map_to_write.opendss_file
+                        )
+                    for controller_map, _ in controller_outputs:
+                        substations_redirect[model_map.substation].add(
+                            Path(model_map.feeder) / controller_map.opendss_file
                         )
 
                 elif separate_substations:
                     substations_redirect[model_map.substation].add(Path(model_map.opendss_file))
-                    if equipment_map is not None:
+                    for equipment_map_to_write in equipment_maps_to_write:
                         substations_redirect[model_map.substation].add(
-                            Path(equipment_map.opendss_file)
+                            Path(equipment_map_to_write.opendss_file)
+                        )
+                    for controller_map, _ in controller_outputs:
+                        substations_redirect[model_map.substation].add(
+                            Path(controller_map.opendss_file)
                         )
 
                 if separate_feeders:
@@ -200,13 +384,19 @@ class Writer(AbstractWriter):
                     if combined_feeder_sub not in feeders_redirect:
                         feeders_redirect[combined_feeder_sub] = set()
                     feeders_redirect[combined_feeder_sub].add(Path(model_map.opendss_file))
-                    if equipment_map is not None:
-                        feeders_redirect[combined_feeder_sub].add(Path(equipment_map.opendss_file))
+                    for equipment_map_to_write in equipment_maps_to_write:
+                        feeders_redirect[combined_feeder_sub].add(
+                            Path(equipment_map_to_write.opendss_file)
+                        )
+                    for controller_map, _ in controller_outputs:
+                        feeders_redirect[combined_feeder_sub].add(
+                            Path(controller_map.opendss_file)
+                        )
 
                 base_redirect.add(output_redirect / model_map.opendss_file)
-                if equipment_map is not None:
-                    base_redirect.add(output_redirect / equipment_map.opendss_file)
-                if controller_map is not None:
+                for equipment_map_to_write in equipment_maps_to_write:
+                    base_redirect.add(output_redirect / equipment_map_to_write.opendss_file)
+                for controller_map, _ in controller_outputs:
                     base_redirect.add(output_redirect / controller_map.opendss_file)
 
         self._write_base_master(base_redirect, output_folder)
@@ -294,7 +484,6 @@ class Writer(AbstractWriter):
 
         if has_source:
             bus = self.system.get_source_bus()
-
             equipment = self.system.get_bus_connected_components(bus.name, DistributionTransformer)
             if equipment:
                 equipment_type = "Transformer"
@@ -324,7 +513,6 @@ class Writer(AbstractWriter):
                                 base_master.write("\n")
                                 break
                 self._write_switch_status(base_master)
-
                 if has_source and equipment_type:
                     base_master.write(
                         f"New EnergyMeter.SourceMeter element={equipment_type}.{equipment_name}\n"

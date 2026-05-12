@@ -2,7 +2,7 @@ from gdm.distribution.components import DistributionBus, DistributionCapacitor
 
 from ditto.readers.cim_iec_61968_13.equipment.capacitor_equipment import CapacitorEquipmentMapper
 from ditto.readers.cim_iec_61968_13.cim_mapper import CimMapper
-from ditto.readers.cim_iec_61968_13.common import phase_mapper
+from ditto.readers.cim_iec_61968_13.common import phase_mapper, normalize_phase_tokens
 
 
 class DistributionCapacitorMapper(CimMapper):
@@ -34,11 +34,7 @@ class DistributionCapacitorMapper(CimMapper):
         )
 
     def map_phases(self, row):
-        phases = row["phase"]
-        if phases is None:
-            phases = ["A", "B", "C"]
-        else:
-            phases = phases.split(",")
+        phases = normalize_phase_tokens(row["phase"])
         return [phase_mapper[phase] for phase in phases]
 
     def map_controllers(self, row):

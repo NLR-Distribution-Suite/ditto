@@ -4,7 +4,7 @@ from gdm.quantities import Voltage
 from infrasys.quantities import Time
 
 from ditto.readers.cim_iec_61968_13.cim_mapper import CimMapper
-from ditto.readers.cim_iec_61968_13.common import phase_mapper
+from ditto.readers.cim_iec_61968_13.common import phase_mapper, normalize_phase_tokens
 
 
 class RegulatorControllerMapper(CimMapper):
@@ -44,7 +44,8 @@ class RegulatorControllerMapper(CimMapper):
         return self.system.get_component(component_type=DistributionBus, name=bus_name)
 
     def map_controlled_phase(self, row):
-        return phase_mapper[row["phase"]]
+        phases = normalize_phase_tokens(row["phase"], default=["A"])
+        return phase_mapper[phases[0]]
 
     def map_delay(self, row):
         return Time(float(row["initial_delay"]), "second")

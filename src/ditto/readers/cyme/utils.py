@@ -35,7 +35,7 @@ def read_cyme_data(
             if line.strip() == "":
                 break
 
-            if line.startswith(f"FORMAT_{cyme_section.replace(' ','')}"):
+            if line.startswith(f"FORMAT_{cyme_section.replace(' ', '')}"):
                 headers = line.split("=")[1].strip().split(",")
                 continue
             elif (
@@ -127,7 +127,7 @@ def network_truncation(system, substation_names=None, feeder_names=None):
         length = len(components)
         print(f"Truncating components of type {component_type.__name__}, total: {length}")
         for i, comp in enumerate(components):
-            print(f"Truncating component {i+1} of {length}", end="\r", flush=True)
+            print(f"Truncating component {i + 1} of {length}", end="\r", flush=True)
             if hasattr(comp, "bus"):
                 if comp.bus.name in bus_set:
                     _safe_add_component(trunc_dist_sys, comp)

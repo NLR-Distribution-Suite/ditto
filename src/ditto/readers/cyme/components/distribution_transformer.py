@@ -9,11 +9,12 @@ from ditto.readers.cyme.equipment.distribution_transformer_three_winding_equipme
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.components.distribution_transformer import DistributionTransformer
 from gdm.distribution.enums import Phase
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class DistributionTransformerMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Network"
     cyme_section = "TRANSFORMER SETTING"
@@ -89,8 +90,8 @@ class DistributionTransformerMapper(CymeMapper):
 
 
 class DistributionTransformerByPhaseMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Network"
     cyme_section = "TRANSFORMER BYPHASE SETTING"
@@ -179,8 +180,8 @@ class DistributionTransformerByPhaseMapper(CymeMapper):
 
 
 class DistributionTransformerThreeWindingMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Network"
     cyme_section = "THREE WINDING TRANSFORMER SETTING"

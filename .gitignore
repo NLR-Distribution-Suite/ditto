@@ -6,6 +6,7 @@ __pycache__/
 *$py.class
 
 tests/dump_from_tests/
+.dump/
 
 # C extensions
 *.so
@@ -169,8 +170,6 @@ cython_debug/
 
 *.csv
 *.json
-*.txt
-*.TXT
 *.swp
 *.swo
 *.DSV

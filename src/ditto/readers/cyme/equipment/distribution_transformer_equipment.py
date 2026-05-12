@@ -3,14 +3,15 @@ from gdm.distribution.equipment.distribution_transformer_equipment import (
     DistributionTransformerEquipment,
 )
 from gdm.distribution.equipment.distribution_transformer_equipment import WindingEquipment
-from gdm.quantities import ActivePower, Voltage
+from gdm.quantities import ApparentPower, Voltage
 from gdm.distribution.common.sequence_pair import SequencePair
 from gdm.distribution.enums import ConnectionType, VoltageTypes
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class DistributionTransformerEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Equipment"
     cyme_section = "TRANSFORMER"
@@ -99,8 +100,8 @@ class DistributionTransformerEquipmentMapper(CymeMapper):
 
 
 class WindingEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Equipment"
     cyme_section = "TRANSFORMER"
@@ -245,7 +246,7 @@ class WindingEquipmentMapper(CymeMapper):
 
     def map_rated_power(self, row):
         power = row["KVA"]
-        power = ActivePower(float(power), "kilowatt")
+        power = ApparentPower(float(power), "kilova")
         return power
 
     def map_num_phases(self, phase):

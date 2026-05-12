@@ -5,6 +5,7 @@ from gdm.distribution.enums import ConnectionType, VoltageTypes
 from gdm.quantities import Voltage
 
 from ditto.readers.cim_iec_61968_13.cim_mapper import CimMapper
+from ditto.readers.cim_iec_61968_13.common import normalize_phase_tokens
 
 
 class CapacitorEquipmentMapper(CimMapper):
@@ -12,11 +13,7 @@ class CapacitorEquipmentMapper(CimMapper):
         super().__init__(system)
 
     def parse(self, row):
-        phases = row["phase"]
-        if phases is None:
-            self.phases = ["A", "B", "C"]
-        else:
-            self.phases = phases.split(",")
+        self.phases = normalize_phase_tokens(row["phase"])
 
         return CapacitorEquipment(
             name=self.map_name(row),

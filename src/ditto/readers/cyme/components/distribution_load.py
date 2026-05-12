@@ -4,11 +4,12 @@ from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.components.distribution_load import DistributionLoad
 from gdm.distribution.enums import Phase
 from loguru import logger
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class DistributionLoadMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Load"
     cyme_section = "CUSTOMER LOADS"

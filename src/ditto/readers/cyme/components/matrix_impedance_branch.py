@@ -6,7 +6,7 @@ from gdm.distribution.equipment.matrix_impedance_branch_equipment import (
 from gdm.distribution.components.matrix_impedance_branch import MatrixImpedanceBranch
 from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.enums import Phase
-
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 from ditto.readers.cyme.constants import (
     DEFAULT_BRANCH_LENGTH,
@@ -18,11 +18,11 @@ from ditto.readers.cyme.constants import (
 
 
 class MatrixImpedanceBranchMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Network"
-    cyme_section = ["UNDERGROUNDLINE SETTING", "SECTION"]
+    cyme_section = ["UNDERGROUNDLINE SETTING", "OVERHEADLINEUNBALANCED SETTING", "SECTION"]
 
     def parse(self, row, used_sections, section_id_sections, cyme_section):
         name = self.map_name(row)
@@ -39,7 +39,6 @@ class MatrixImpedanceBranchMapper(CymeMapper):
             )
         except Exception as e:
             print(f"Error creating MatrixImpedanceBranch {name}: {e}")
-            print(buses)
             return None
 
     def map_name(self, row):
@@ -57,8 +56,16 @@ class MatrixImpedanceBranchMapper(CymeMapper):
         return [from_bus, to_bus]
 
     def map_length(self, row, cyme_section):
-        if cyme_section == "UNDERGROUNDLINE SETTING":
-            length = Distance(float(row["Length"]), "foot").to("km")
+        if cyme_section in ["UNDERGROUNDLINE SETTING", "OVERHEADLINEUNBALANCED SETTING"]:
+            if self.units == ModelUnitSystem.SI:
+                length = Distance(float(row["Length"]), "meter")
+            else:
+                length = Distance(float(row["Length"]), "foot")
+            if length <= 0:
+                if self.units == ModelUnitSystem.SI:
+                    length = Distance(1e-6, "m")
+                else:
+                    length = Distance(1e-6, "ft")
         else:
             length = DEFAULT_BRANCH_LENGTH
 
@@ -78,7 +85,7 @@ class MatrixImpedanceBranchMapper(CymeMapper):
         return phases
 
     def map_equipment(self, row, phases, cyme_section):
-        if cyme_section == "UNDERGROUNDLINE SETTING":
+        if cyme_section in ["UNDERGROUNDLINE SETTING", "OVERHEADLINEUNBALANCED SETTING"]:
             line_id = row["LineCableID"]
             equipment_name = f"{line_id}_{len(phases)}"
             line = self.system.get_component(
@@ -86,20 +93,38 @@ class MatrixImpedanceBranchMapper(CymeMapper):
             )
         elif cyme_section == "SECTION":
             r = DEFAULT_R_MATRIX
-            r_matrix = ResistancePULength(
-                [row[: len(phases)] for row in r[: len(phases)]],
-                "ohm/mi",
-            )
+            if self.units == ModelUnitSystem.SI:
+                r_matrix = ResistancePULength(
+                    [row[: len(phases)] for row in r[: len(phases)]],
+                    "ohm/km",
+                )
+            else:
+                r_matrix = ResistancePULength(
+                    [row[: len(phases)] for row in r[: len(phases)]],
+                    "ohm/mi",
+                )
             x = DEFAULT_X_MATRIX
-            x_matrix = ReactancePULength(
-                [row[: len(phases)] for row in x[: len(phases)]],
-                "ohm/mi",
-            )
+            if self.units == ModelUnitSystem.SI:
+                x_matrix = ReactancePULength(
+                    [row[: len(phases)] for row in x[: len(phases)]],
+                    "ohm/km",
+                )
+            else:
+                x_matrix = ReactancePULength(
+                    [row[: len(phases)] for row in x[: len(phases)]],
+                    "ohm/mi",
+                )
             c = DEFAULT_C_MATRIX
-            c_matrix = CapacitancePULength(
-                [row[: len(phases)] for row in c[: len(phases)]],
-                "nanofarad/mi",
-            )
+            if self.units == ModelUnitSystem.SI:
+                c_matrix = CapacitancePULength(
+                    [row[: len(phases)] for row in c[: len(phases)]],
+                    "nanofarad/km",
+                )
+            else:
+                c_matrix = CapacitancePULength(
+                    [row[: len(phases)] for row in c[: len(phases)]],
+                    "nanofarad/mi",
+                )
             ampacity = DEFAULT_BRANCH_AMPACITY
             line = MatrixImpedanceBranchEquipment.model_construct(
                 name=row["SectionID"],

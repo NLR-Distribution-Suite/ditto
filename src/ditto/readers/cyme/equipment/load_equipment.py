@@ -4,11 +4,12 @@ from gdm.distribution.equipment.phase_load_equipment import PhaseLoadEquipment
 from gdm.quantities import ActivePower, ReactivePower
 from gdm.distribution.enums import ConnectionType
 from loguru import logger
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class LoadEquipmentMapper(CymeMapper):
-    def __init__(self, system):
-        super().__init__(system)
+    def __init__(self, system, units=ModelUnitSystem):
+        super().__init__(system, units=units)
 
     cyme_file = "Load"
     cyme_section = "LOADS"
@@ -50,7 +51,23 @@ class LoadEquipmentMapper(CymeMapper):
 
 
 class PhaseLoadEquipmentMapper(CymeMapper):
-    def __init__(self, system):
+    # CYME customer class definitions (from Load.txt [CUSTOMER CLASS])
+    # Maps CustomerType to (P%, I%, Z%) tuple representing ZIP coefficients
+    ZIP_MAP = {
+        "Z": (0, 0, 1),  # Constant Impedance
+        "I": (0, 1, 0),  # Constant Current
+        "PQ": (1, 0, 0),  # Constant Power
+        "Commercial": (1, 0, 0),
+        "Heater": (1, 0, 0),
+        "Industrial": (1, 0, 0),
+        "Lighting": (1, 0, 0),
+        "Other": (1, 0, 0),
+        "Power_Electronics": (1, 0, 0),
+        "Residential": (1, 0, 0),
+        "Rotating_Machine": (1, 0, 0),
+    }
+
+    def __init__(self, system, units=ModelUnitSystem):
         super().__init__(system)
 
     cyme_file = "Load"
@@ -63,22 +80,17 @@ class PhaseLoadEquipmentMapper(CymeMapper):
         if real_power == 0 and reactive_power == 0:
             logger.warning(f"Load {name} has 0 kW and 0 kVAR. Skipping...")
             return None
-        z_real = self.map_z_real(row)
-        z_imag = self.map_z_imag(row)
-        i_real = self.map_i_real(row)
-        i_imag = self.map_i_imag(row)
-        p_real = self.map_p_real(row)
-        p_imag = self.map_p_imag(row)
+        p_coeff, i_coeff, z_coeff = self.get_zip_coefficients(row)
         return PhaseLoadEquipment(
             name=name,
             real_power=real_power,
             reactive_power=reactive_power,
-            z_real=z_real,
-            z_imag=z_imag,
-            i_real=i_real,
-            i_imag=i_imag,
-            p_real=p_real,
-            p_imag=p_imag,
+            z_real=z_coeff,
+            z_imag=z_coeff,
+            i_real=i_coeff,
+            i_imag=i_coeff,
+            p_real=p_coeff,
+            p_imag=p_coeff,
         )
 
     def map_name(self, row):
@@ -118,21 +130,7 @@ class PhaseLoadEquipmentMapper(CymeMapper):
         kw, kvar = self.compute_powers(row)
         return ReactivePower(kvar, "kilovar")
 
-    # Is this included in CYME 9.* ? It was in customer class in previous cyme versions
-    def map_z_real(self, row):
-        return 1
-
-    def map_z_imag(self, row):
-        return 1
-
-    def map_i_real(self, row):
-        return 0
-
-    def map_i_imag(self, row):
-        return 0
-
-    def map_p_real(self, row):
-        return 0
-
-    def map_p_imag(self, row):
-        return 0
+    def get_zip_coefficients(self, row):
+        """Get ZIP coefficients (P%, I%, Z%) based on CustomerType."""
+        customer_type = row.get("CustomerType", "PQ")
+        return self.ZIP_MAP.get(customer_type, (1, 0, 0))

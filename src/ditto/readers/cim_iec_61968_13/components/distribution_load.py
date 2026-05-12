@@ -2,7 +2,7 @@ from gdm.distribution.components import DistributionLoad, DistributionBus
 
 from ditto.readers.cim_iec_61968_13.equipment.load_equipment import LoadEquipmentMapper
 from ditto.readers.cim_iec_61968_13.cim_mapper import CimMapper
-from ditto.readers.cim_iec_61968_13.common import phase_mapper
+from ditto.readers.cim_iec_61968_13.common import phase_mapper, normalize_phase_tokens
 
 
 class DistributionLoadMapper(CimMapper):
@@ -35,19 +35,18 @@ class DistributionLoadMapper(CimMapper):
             bus_name,
             f"DistributionLoad '{self.map_name(row)}'",
         )
-        phases = row["phase"]
-
-        if phases is None:
-            phases = ["A", "B", "C"]
-        else:
-            phases = phases.split(",")
+        phases = self._normalize_phase_tokens(row)
         phases = [phase_mapper[phase] for phase in phases]
 
         if row["grounded"] == "false" and len(phases) == 1:
             diff = list(set(bus.phases).difference(phases))
             if diff:
-                phases.append(sorted(diff)[0].value)
+                phases.append(sorted(diff, key=lambda phase: phase.value)[0])
         return phases
+
+    def _normalize_phase_tokens(self, row):
+        phase_value = row.get("phase") if hasattr(row, "get") else row["phase"]
+        return normalize_phase_tokens(phase_value)
 
     def map_equipment(self, row):
         mapper = LoadEquipmentMapper(self.system)

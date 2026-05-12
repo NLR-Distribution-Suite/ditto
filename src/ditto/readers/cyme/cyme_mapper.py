@@ -1,6 +1,9 @@
 from abc import ABC
 
-class CymeMapper(ABC):
+from ditto.readers.cyme.constants import ModelUnitSystem
 
-    def __init__(self, system):
+
+class CymeMapper(ABC):
+    def __init__(self, system, units=ModelUnitSystem):
         self.system = system
+        self.units = units

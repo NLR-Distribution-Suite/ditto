@@ -203,7 +203,7 @@ def build_split_phase_distribution_buses():
             update={
                 "uuid": uuid4(),
                 "name": f"split_phase_bus_{i}",
-                "phases": [Phase.S1, Phase.S2, Phase.N],
+                "phases": [Phase.S1, Phase.S2],
                 "rated_voltage": Voltage(120, "volt"),
                 "voltage_type": VoltageTypes.LINE_TO_GROUND,
             }

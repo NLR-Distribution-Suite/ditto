@@ -8,7 +8,7 @@ from gdm.distribution.enums import (
 )
 
 from ditto.readers.cim_iec_61968_13.cim_mapper import CimMapper
-from ditto.readers.cim_iec_61968_13.common import phase_mapper
+from ditto.readers.cim_iec_61968_13.common import phase_mapper, normalize_phase_tokens
 
 
 class DistributionBusMapper(CimMapper):
@@ -16,7 +16,7 @@ class DistributionBusMapper(CimMapper):
         super().__init__(system)
 
     def parse(self, row):
-        phases = row["phase"].split(",")
+        phases = self._normalize_phase_tokens(row)
         self.n_phase = len(phases)
         return DistributionBus(
             name=self.map_name(row),
@@ -41,9 +41,12 @@ class DistributionBusMapper(CimMapper):
         return Voltage(float(row["rated_voltage"]) / 1.732, "volt")
 
     def map_phases(self, row):
-        phases = row["phase"].split(",")
+        phases = self._normalize_phase_tokens(row)
         all_phases = [phase_mapper[phase] for phase in phases]
         return all_phases
+
+    def _normalize_phase_tokens(self, row):
+        return normalize_phase_tokens(row["phase"])
 
     def map_voltagelimits(self, row):
         return [

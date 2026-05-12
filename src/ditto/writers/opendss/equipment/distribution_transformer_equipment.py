@@ -64,7 +64,13 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
             # connection_type
             conns.append(self.connection_map[connection_type])
             # TODO: num_phases and is_grounded aren't included
-            if self.model.is_center_tapped and i == len(self.model.windings) - 1:
+            # Only synthesize the extra split-phase winding when the model
+            # represents a center-tapped unit with two explicit windings.
+            if (
+                self.model.is_center_tapped
+                and len(self.model.windings) == 2
+                and i == len(self.model.windings) - 1
+            ):
                 kvs.append(nom_voltage)
                 pctRs.append(winding.resistance)
                 kVAs.append(winding.rated_power.to("kilova").magnitude)

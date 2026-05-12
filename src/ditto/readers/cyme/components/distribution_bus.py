@@ -3,11 +3,12 @@ from gdm.distribution.components.distribution_bus import DistributionBus
 from gdm.distribution.enums import VoltageTypes, Phase
 from gdm.quantities import Voltage
 from ditto.readers.cyme.cyme_mapper import CymeMapper
+from ditto.readers.cyme.constants import ModelUnitSystem
 
 
 class DistributionBusMapper(CymeMapper):
-    def __init__(self, cyme_model):
-        super().__init__(cyme_model)
+    def __init__(self, cyme_model, units=ModelUnitSystem):
+        super().__init__(cyme_model, units=units)
 
     cyme_file = "Network"
     cyme_section = "NODE"
