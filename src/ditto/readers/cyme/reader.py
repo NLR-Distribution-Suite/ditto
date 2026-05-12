@@ -73,33 +73,9 @@ class Reader(AbstractReader):
                     return ModelUnitSystem.SI
         return ModelUnitSystem.IMPERIAL
 
-    def read(
-        self,
-        network_file,
-        equipment_file,
-        load_file,
-        load_model_id=None,
-        substation_names=None,
-        feeder_names=None,
-    ):
-        # Section data read separately as it links to other tables
-        section_id_sections = {}
-        from_node_sections = {}
-        to_node_sections = {}
-        phase_elements = set(
-            [
-                "MatrixImpedanceBranchEquipmentMapper",
-                "MatrixImpedanceRecloserEquipmentMapper",
-                "MatrixImpedanceSwitchEquipmentMapper",
-                "MatrixImpedanceFuseEquipmentMapper",
-            ]
-        )
-
+    def _build_section_maps(self, network_file):
         node_feeder_map = {}
         node_substation_map = {}
-        load_record = {}
-        used_sections = set()
-
         section_data = read_cyme_data(
             network_file,
             "SECTION",
@@ -108,7 +84,6 @@ class Reader(AbstractReader):
             parse_feeders=True,
             parse_substation=True,
         )
-
         section_id_sections = section_data.set_index("SectionID").to_dict(orient="index")
         from_node_sections = (
             section_data.groupby("FromNodeID")
@@ -120,134 +95,124 @@ class Reader(AbstractReader):
             .apply(lambda df: df.to_dict(orient="records"))
             .to_dict()
         )
+        return (
+            section_id_sections,
+            from_node_sections,
+            to_node_sections,
+            node_feeder_map,
+            node_substation_map,
+        )
 
-        unit_system = self._get_unit_system(network_file)
+    def _get_mapper(self, component_type, unit_system):
+        mapper_name = component_type + "Mapper"
+        if not hasattr(cyme_mapper, mapper_name):
+            logger.warning(f"Mapper {mapper_name} not found. Skipping.")
+            return None, mapper_name
+        mapper = getattr(cyme_mapper, mapper_name)(self.system, units=unit_system)
+        return mapper, mapper_name
 
-        for component_type in self.component_types:
-            logger.info(f"Parsing Type: {component_type}")
-            mapper_name = component_type + "Mapper"
-            if not hasattr(cyme_mapper, mapper_name):
-                logger.warning(f"Mapper {mapper_name} not found. Skipping.")
-                continue
+    def _get_mapper_sections(self, mapper):
+        all_cyme_sections = mapper.cyme_section
+        if isinstance(all_cyme_sections, str):
+            all_cyme_sections = [all_cyme_sections]
+        return all_cyme_sections
 
-            mapper = getattr(cyme_mapper, mapper_name)(self.system, units=unit_system)
+    def _build_argument_handler(
+        self,
+        section_id_sections,
+        from_node_sections,
+        to_node_sections,
+        node_feeder_map,
+        node_substation_map,
+        used_sections,
+        load_file,
+        load_record,
+        equipment_file,
+        cyme_section,
+    ):
+        return {
+            "DistributionCapacitorMapper": lambda: [section_id_sections],
+            "DistributionBusMapper": lambda: [
+                from_node_sections,
+                to_node_sections,
+                node_feeder_map,
+                node_substation_map,
+            ],
+            "DistributionVoltageSourceMapper": lambda: [],
+            "DistributionLoadMapper": lambda: [
+                section_id_sections,
+                read_cyme_data(load_file, "LOADS", index_col="DeviceNumber"),
+                load_record,
+            ],
+            "GeometryBranchMapper": lambda: [used_sections, section_id_sections, cyme_section],
+            "BareConductorEquipmentMapper": lambda: [],
+            "GeometryBranchEquipmentMapper": lambda: [
+                read_cyme_data(equipment_file, "SPACING TABLE FOR LINE", index_col="ID")
+            ],
+            "MatrixImpedanceSwitchEquipmentMapper": lambda: [],
+            "MatrixImpedanceSwitchMapper": lambda: [used_sections, section_id_sections],
+            "MatrixImpedanceFuseEquipmentMapper": lambda: [],
+            "MatrixImpedanceFuseMapper": lambda: [used_sections, section_id_sections],
+            "MatrixImpedanceRecloserEquipmentMapper": lambda: [],
+            "MatrixImpedanceRecloserMapper": lambda: [used_sections, section_id_sections],
+            "GeometryBranchByPhaseEquipmentMapper": lambda: [
+                read_cyme_data(equipment_file, "SPACING TABLE FOR LINE", index_col="ID")
+            ],
+            "DistributionTransformerThreeWindingMapper": lambda: [
+                used_sections,
+                section_id_sections,
+                read_cyme_data(
+                    equipment_file, "THREE WINDING TRANSFORMER", index_col="ID"
+                ).to_dict("index"),
+            ],
+            "DistributionTransformerMapper": lambda: [
+                used_sections,
+                section_id_sections,
+                read_cyme_data(equipment_file, "TRANSFORMER", index_col="ID").to_dict("index"),
+            ],
+            "DistributionTransformerByPhaseMapper": lambda: [
+                used_sections,
+                section_id_sections,
+                read_cyme_data(equipment_file, "TRANSFORMER", index_col="ID").to_dict("index"),
+            ],
+            "DistributionRegulatorMapper": lambda: [
+                used_sections,
+                section_id_sections,
+                read_cyme_data(equipment_file, "REGULATOR", index_col="ID").to_dict("index"),
+            ],
+            "MatrixImpedanceBranchEquipmentMapper": lambda: [],
+            "MatrixImpedanceBranchMapper": lambda: [
+                used_sections,
+                section_id_sections,
+                cyme_section,
+            ],
+        }
 
-            cyme_file = mapper.cyme_file
-            cyme_section = mapper.cyme_section
-            all_cyme_sections = mapper.cyme_section
-            if isinstance(all_cyme_sections, str):
-                all_cyme_sections = [all_cyme_sections]
+    def _flatten_components(self, components):
+        filtered = [c for c in components if c is not None]
+        return [item for c in filtered for item in (c if isinstance(c, list) else [c])]
 
-            for cyme_section in all_cyme_sections:
-                data = self._prepare_data(
-                    cyme_file, cyme_section, load_model_id, network_file, equipment_file, load_file
-                )
+    def _add_components_if_missing(self, components):
+        for comp in components:
+            if not self.system.has_component(comp):
+                self.system.add_component(comp)
 
-                argument_handler = {
-                    "DistributionCapacitorMapper": lambda: [
-                        section_id_sections,
-                    ],
-                    "DistributionBusMapper": lambda: [
-                        from_node_sections,
-                        to_node_sections,
-                        node_feeder_map,
-                        node_substation_map,
-                    ],
-                    "DistributionVoltageSourceMapper": lambda: [],
-                    "DistributionLoadMapper": lambda: [
-                        section_id_sections,
-                        read_cyme_data(load_file, "LOADS", index_col="DeviceNumber"),
-                        load_record,
-                    ],
-                    "GeometryBranchMapper": lambda: [
-                        used_sections,
-                        section_id_sections,
-                        cyme_section,
-                    ],
-                    "BareConductorEquipmentMapper": lambda: [],
-                    "GeometryBranchEquipmentMapper": lambda: [
-                        read_cyme_data(equipment_file, "SPACING TABLE FOR LINE", index_col="ID")
-                    ],
-                    "MatrixImpedanceSwitchEquipmentMapper": lambda: [],
-                    "MatrixImpedanceSwitchMapper": lambda: [used_sections, section_id_sections],
-                    "MatrixImpedanceFuseEquipmentMapper": lambda: [],
-                    "MatrixImpedanceFuseMapper": lambda: [used_sections, section_id_sections],
-                    "MatrixImpedanceRecloserEquipmentMapper": lambda: [],
-                    "MatrixImpedanceRecloserMapper": lambda: [used_sections, section_id_sections],
-                    "GeometryBranchByPhaseEquipmentMapper": lambda: [
-                        read_cyme_data(equipment_file, "SPACING TABLE FOR LINE", index_col="ID")
-                    ],
-                    "DistributionTransformerThreeWindingMapper": lambda: [
-                        used_sections,
-                        section_id_sections,
-                        read_cyme_data(
-                            equipment_file, "THREE WINDING TRANSFORMER", index_col="ID"
-                        ).to_dict("index"),
-                    ],
-                    "DistributionTransformerMapper": lambda: [
-                        used_sections,
-                        section_id_sections,
-                        read_cyme_data(equipment_file, "TRANSFORMER", index_col="ID").to_dict(
-                            "index"
-                        ),
-                    ],
-                    "DistributionTransformerByPhaseMapper": lambda: [
-                        used_sections,
-                        section_id_sections,
-                        read_cyme_data(equipment_file, "TRANSFORMER", index_col="ID").to_dict(
-                            "index"
-                        ),
-                    ],
-                    "DistributionRegulatorMapper": lambda: [
-                        used_sections,
-                        section_id_sections,
-                        read_cyme_data(equipment_file, "REGULATOR", index_col="ID").to_dict(
-                            "index"
-                        ),
-                    ],
-                    "MatrixImpedanceBranchEquipmentMapper": lambda: [],
-                    "MatrixImpedanceBranchMapper": lambda: [
-                        used_sections,
-                        section_id_sections,
-                        cyme_section,
-                    ],
-                }
-                args = argument_handler.get(mapper_name, lambda: [])()
+    def _parse_components_for_mapper(self, mapper, data, args):
+        def parse_row(row):
+            return mapper.parse(row, *args)
 
-                def parse_row(row):
-                    model_entry = mapper.parse(row, *args)
-                    return model_entry
+        return self._flatten_components(data.apply(parse_row, axis=1))
 
-                if mapper_name in phase_elements:
-                    phases = []
-                    for phase in ["A", "B", "C"]:
-                        phases.append(phase)
-                        args = [phases]
-                        components = data.apply(parse_row, axis=1)
-                        components = [c for c in components if c is not None]
-                        components = [
-                            item
-                            for c in components
-                            for item in (c if isinstance(c, list) else [c])
-                        ]
-                        for c in components:
-                            if not self.system.has_component(c):
-                                self.system.add_component(c)
+    def _parse_phase_components(self, mapper, data):
+        phases = []
+        all_components = []
+        for phase in ["A", "B", "C"]:
+            phases.append(phase)
+            all_components.extend(self._parse_components_for_mapper(mapper, data, [phases]))
+        return all_components
 
-                        # self.system.add_components(*components)
-                else:
-                    components = data.apply(parse_row, axis=1)
-                    components = [c for c in components if c is not None]
-                    components = [
-                        item for c in components for item in (c if isinstance(c, list) else [c])
-                    ]
-                    for c in components:
-                        if not self.system.has_component(c):
-                            self.system.add_component(c)
-                    # self.system.add_components(*components)
-
+    def _post_process_network(self, substation_names, feeder_names):
         self.assign_bus_voltages()
-
         self.serialize_parallel_branches()
 
         if substation_names is not None or feeder_names is not None:
@@ -261,7 +226,70 @@ class Reader(AbstractReader):
             for c in components:
                 if not self.system.has_component(c):
                     self.system.add_component(c)
-            # self._add_components(components)
+
+    def read(
+        self,
+        network_file,
+        equipment_file,
+        load_file,
+        load_model_id=None,
+        substation_names=None,
+        feeder_names=None,
+    ):
+        phase_elements = {
+            "MatrixImpedanceBranchEquipmentMapper",
+            "MatrixImpedanceRecloserEquipmentMapper",
+            "MatrixImpedanceSwitchEquipmentMapper",
+            "MatrixImpedanceFuseEquipmentMapper",
+        }
+
+        load_record = {}
+        used_sections = set()
+
+        (
+            section_id_sections,
+            from_node_sections,
+            to_node_sections,
+            node_feeder_map,
+            node_substation_map,
+        ) = self._build_section_maps(network_file)
+
+        unit_system = self._get_unit_system(network_file)
+
+        for component_type in self.component_types:
+            logger.info(f"Parsing Type: {component_type}")
+            mapper, mapper_name = self._get_mapper(component_type, unit_system)
+            if mapper is None:
+                continue
+
+            cyme_file = mapper.cyme_file
+            all_cyme_sections = self._get_mapper_sections(mapper)
+
+            for cyme_section in all_cyme_sections:
+                data = self._prepare_data(
+                    cyme_file, cyme_section, load_model_id, network_file, equipment_file, load_file
+                )
+
+                argument_handler = self._build_argument_handler(
+                    section_id_sections,
+                    from_node_sections,
+                    to_node_sections,
+                    node_feeder_map,
+                    node_substation_map,
+                    used_sections,
+                    load_file,
+                    load_record,
+                    equipment_file,
+                    cyme_section,
+                )
+                args = argument_handler.get(mapper_name, lambda: [])()
+                if mapper_name in phase_elements:
+                    components = self._parse_phase_components(mapper, data)
+                else:
+                    components = self._parse_components_for_mapper(mapper, data, args)
+                self._add_components_if_missing(components)
+
+        self._post_process_network(substation_names, feeder_names)
 
         self._validate_model()
 
@@ -434,86 +462,63 @@ class Reader(AbstractReader):
 
         for i, comps in enumerate(parallel_components):
             transformers, non_transformers = self._sort_parallel_components(comps)
-
             if transformers:
-                # Use model_construct for buses to avoid validation before assign_bus_voltages()
-                xfmr_primary_base = transformers[0].buses[0]
-                values = {}
-                for field in type(xfmr_primary_base).model_fields:
-                    cur_val = getattr(xfmr_primary_base, field)
-                    if field == "name":
-                        val = f"{xfmr_primary_base.name}_primary"
-                    elif field in ("uuid",):
-                        continue
-                    else:
-                        val = cur_val
-                    values[field] = val
-                xfmr_primary = type(xfmr_primary_base).model_construct(**values)
-                self.system.add_component(xfmr_primary)
-                xfmr_secondary = transformers[0].buses[1]
-
-                # Chain non-transformers in series before the transformer
-                for j, comp in enumerate(non_transformers):
-                    if j == 0:
-                        if len(non_transformers) == 1:
-                            pass
-                        else:
-                            new_bus_base = non_transformers[j + 1].buses[1]
-                            values = {}
-                            for field in type(new_bus_base).model_fields:
-                                cur_val = getattr(new_bus_base, field)
-                                if field == "name":
-                                    val = f"{new_bus_base.name}_{j}_{i}"
-                                elif field in ("uuid",):
-                                    continue
-                                else:
-                                    val = cur_val
-                                values[field] = val
-                            new_bus = type(new_bus_base).model_construct(**values)
-                            self.system.add_component(new_bus)
-                            comp.buses[0] = new_bus
-                        comp.buses[1] = xfmr_primary
-
-                    elif j < len(non_transformers) - 1:
-                        comp.buses[1] = non_transformers[j - 1].buses[0]
-                        new_bus_base = non_transformers[j + 1].buses[1]
-                        values = {}
-                        for field in type(new_bus_base).model_fields:
-                            cur_val = getattr(new_bus_base, field)
-                            if field == "name":
-                                val = f"{new_bus_base.name}_{j}_{i}"
-                            elif field in ("uuid",):
-                                continue
-                            else:
-                                val = cur_val
-                            values[field] = val
-                        new_bus = type(new_bus_base).model_construct(**values)
-                        self.system.add_component(new_bus)
-                        comp.buses[0] = new_bus
-                    else:
-                        comp.buses[1] = non_transformers[j - 1].buses[0]
-
-                for j, comp in enumerate(transformers):
-                    comp.buses[0] = xfmr_primary
-                    comp.buses[1] = xfmr_secondary
-
+                self._serialize_parallel_with_transformers(i, transformers, non_transformers)
             else:
-                for j, comp in enumerate(non_transformers[:-1]):
-                    new_bus_base = comp.buses[1]
-                    values = {}
-                    for field in type(new_bus_base).model_fields:
-                        cur_val = getattr(new_bus_base, field)
-                        if field == "name":
-                            val = f"{new_bus_base.name}_{j}_{i}"
-                        elif field in ("uuid",):
-                            continue
-                        else:
-                            val = cur_val
-                        values[field] = val
-                    new_bus = type(new_bus_base).model_construct(**values)
-                    self.system.add_component(new_bus)
-                    comp.buses[1] = new_bus
-                    non_transformers[j + 1].buses[0] = new_bus
+                self._serialize_parallel_without_transformers(i, non_transformers)
+
+    def _clone_with_new_name(self, obj, new_name):
+        values = {}
+        for field in type(obj).model_fields:
+            cur_val = getattr(obj, field)
+            if field == "name":
+                val = new_name
+            elif field in ("uuid",):
+                continue
+            else:
+                val = cur_val
+            values[field] = val
+        return type(obj).model_construct(**values)
+
+    def _create_parallel_bus(self, base_bus, index, edge_index):
+        new_bus = self._clone_with_new_name(base_bus, f"{base_bus.name}_{index}_{edge_index}")
+        self.system.add_component(new_bus)
+        return new_bus
+
+    def _serialize_parallel_with_transformers(self, edge_index, transformers, non_transformers):
+        xfmr_primary_base = transformers[0].buses[0]
+        xfmr_primary = self._clone_with_new_name(
+            xfmr_primary_base, f"{xfmr_primary_base.name}_primary"
+        )
+        self.system.add_component(xfmr_primary)
+        xfmr_secondary = transformers[0].buses[1]
+
+        for j, comp in enumerate(non_transformers):
+            if j == 0:
+                if len(non_transformers) > 1:
+                    new_bus = self._create_parallel_bus(
+                        non_transformers[j + 1].buses[1], j, edge_index
+                    )
+                    comp.buses[0] = new_bus
+                comp.buses[1] = xfmr_primary
+            elif j < len(non_transformers) - 1:
+                comp.buses[1] = non_transformers[j - 1].buses[0]
+                new_bus = self._create_parallel_bus(
+                    non_transformers[j + 1].buses[1], j, edge_index
+                )
+                comp.buses[0] = new_bus
+            else:
+                comp.buses[1] = non_transformers[j - 1].buses[0]
+
+        for comp in transformers:
+            comp.buses[0] = xfmr_primary
+            comp.buses[1] = xfmr_secondary
+
+    def _serialize_parallel_without_transformers(self, edge_index, non_transformers):
+        for j, comp in enumerate(non_transformers[:-1]):
+            new_bus = self._create_parallel_bus(comp.buses[1], j, edge_index)
+            comp.buses[1] = new_bus
+            non_transformers[j + 1].buses[0] = new_bus
 
     def _get_parallel_edges(self):
         G = self.system.get_undirected_graph()
