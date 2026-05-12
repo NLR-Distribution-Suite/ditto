@@ -46,14 +46,14 @@ class DistributionLoadMapper(OpenDSSMapper):
                 self.opendss_dict["Bus1"] += self.phase_map[phase]
 
         # TODO: Should we include the phases its connected to here?
+
         nom_voltage = self.model.bus.rated_voltage.to("kV").magnitude
-        # ``rated_voltage`` is modeled as line-to-neutral in GDM bus objects.
-        # OpenDSS load kV expects line-to-neutral only for single-phase wye loads;
-        # all other load configurations use line-to-line.
+
         if num_phases == 1 and self.model.equipment.connection_type == ConnectionType.STAR:
             self.opendss_dict["kV"] = nom_voltage
         else:
             self.opendss_dict["kV"] = nom_voltage * LL_LN_CONVERSION_FACTOR
+
 
     def map_phases(self):
         if (
