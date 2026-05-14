@@ -39,11 +39,17 @@ class DistributionCapacitorMapper(CymeMapper):
         phases = []
 
         # Check which phases have non-zero kvar values
-        if "FixedKVARA" in row and float(row.get("FixedKVARA", 0.0)) > 0:
+        if ("FixedKVARA" in row and float(row.get("FixedKVARA", 0.0)) > 0) or (
+            "SwitchedKVARA" in row and float(row.get("SwitchedKVARA", 0.0)) > 0
+        ):
             phases.append(Phase.A)
-        if "FixedKVARB" in row and float(row.get("FixedKVARB", 0.0)) > 0:
+        if ("FixedKVARB" in row and float(row.get("FixedKVARB", 0.0)) > 0) or (
+            "SwitchedKVARB" in row and float(row.get("SwitchedKVARB", 0.0)) > 0
+        ):
             phases.append(Phase.B)
-        if "FixedKVARC" in row and float(row.get("FixedKVARC", 0.0)) > 0:
+        if ("FixedKVARC" in row and float(row.get("FixedKVARC", 0.0)) > 0) or (
+            "SwitchedKVARC" in row and float(row.get("SwitchedKVARC", 0.0)) > 0
+        ):
             phases.append(Phase.C)
 
         # Some CYME datasets (e.g. 13-node sample) encode capacitor phase in
@@ -99,9 +105,12 @@ class DistributionCapacitorMapper(CymeMapper):
 
     def _phase_kvar_map_from_row(self, row):
         return {
-            Phase.A: self._safe_float(row.get("FixedKVARA", 0.0)),
-            Phase.B: self._safe_float(row.get("FixedKVARB", 0.0)),
-            Phase.C: self._safe_float(row.get("FixedKVARC", 0.0)),
+            Phase.A: self._safe_float(row.get("FixedKVARA", 0.0))
+            + self._safe_float(row.get("SwitchedKVARA", 0.0)),
+            Phase.B: self._safe_float(row.get("FixedKVARB", 0.0))
+            + self._safe_float(row.get("SwitchedKVARB", 0.0)),
+            Phase.C: self._safe_float(row.get("FixedKVARC", 0.0))
+            + self._safe_float(row.get("SwitchedKVARC", 0.0)),
         }
 
     def _apply_aggregate_kvar_fallback(self, row, phases, phase_kvar_map):

@@ -66,7 +66,17 @@ class GeometryBranchMapper(CymeMapper):
             phases.append(Phase.B)
         if "C" in phase:
             phases.append(Phase.C)
-        return phases
+
+        if len(phases) == len(equipment.conductors):
+            return phases
+        elif len(phase) == len(equipment.conductors) - 1:
+            phases.append(Phase.N)
+            for bus in buses:
+                if bus.phases is not None and Phase.N not in bus.phases:
+                    bus.phases.append(Phase.N)
+            return phases
+        else:
+            return phases
 
     def map_equipment(self, row, cyme_section):
         line_id = (
