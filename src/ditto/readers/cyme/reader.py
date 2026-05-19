@@ -212,8 +212,9 @@ class Reader(AbstractReader):
         return all_components
 
     def _post_process_network(self, substation_names, feeder_names):
-        self.assign_bus_voltages()
         self.serialize_parallel_branches()
+
+        self.assign_bus_voltages()
 
         if substation_names is not None or feeder_names is not None:
             self.system = network_truncation(
