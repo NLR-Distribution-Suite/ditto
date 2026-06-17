@@ -19,6 +19,7 @@ class OpenDSSMapper(ABC):
         "millimeter": "mm",
     }
     connection_map = {"STAR": "wye", "DELTA": "delta", "OPEN_DELTA": "delta", "OPEN_STAR": "wye"}
+    _warned_unsafe_chars = False
 
     @property
     @abstractmethod
@@ -95,9 +96,15 @@ class OpenDSSMapper(ABC):
 
         not_safe_characters = [" ", ".", "=", "!", "[", "]", "{", "}", "@", "%", "~"]
 
+        needs_fix = any(char in name for char in not_safe_characters)
+        if needs_fix and not OpenDSSMapper._warned_unsafe_chars:
+            logger.warning(
+                "Some component names contain characters unsafe for OpenDSS and will be sanitized."
+            )
+            OpenDSSMapper._warned_unsafe_chars = True
+
         for char in not_safe_characters:
             if char in name:
-                logger.debug(f"Replacing {char} in {name} with _ for OpenDSS compatibility.")
                 name = name.replace(char, "_")
 
         return name
