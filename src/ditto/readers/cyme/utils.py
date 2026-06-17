@@ -1,3 +1,5 @@
+from loguru import logger
+
 import pandas as pd
 from gdm.distribution.components.distribution_feeder import DistributionFeeder
 from gdm.distribution.components.distribution_substation import DistributionSubstation
@@ -8,7 +10,7 @@ from infrasys.exceptions import ISAlreadyAttached
 from functools import partial
 
 
-def read_cyme_data(
+def read_cyme_data(  # noqa: C901
     cyme_file,
     cyme_section,
     index_col=None,
@@ -38,11 +40,7 @@ def read_cyme_data(
             if line.startswith(f"FORMAT_{cyme_section.replace(' ', '')}"):
                 headers = line.split("=")[1].strip().split(",")
                 continue
-            elif (
-                line.startswith("FORMAT")
-                or line.startswith("FEEDER")
-                or line.startswith("SUBSTATION")
-            ):
+            elif line.startswith(("FORMAT", "FEEDER", "SUBSTATION")):
                 feeder_id, substation_id = _parse_context_line(
                     line, parse_feeders, parse_substation
                 )
@@ -68,6 +66,11 @@ def read_cyme_data(
                     raise Exception(f"Failed to parse line: {line}. Error: {e}")
 
     data = pd.DataFrame(all_data, columns=headers)
+
+    if data.empty:
+        logger.info(f"No data found for section {cyme_section} in file {cyme_file}")
+        return data
+
     if index_col is not None:
         data.set_index(index_col, inplace=True, drop=False)
     return data
