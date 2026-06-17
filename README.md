@@ -3,7 +3,7 @@
 
 [![PyPI version](https://badge.fury.io/py/NREL-ditto.svg)](https://pypi.org/project/NREL-ditto/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-yellow.svg)](https://opensource.org/license/bsd-3-clause/)
 [![codecov](https://codecov.io/gh/NLR-Distribution-Suite/ditto/graph/badge.svg?token=1TSI2L9HNR)](https://codecov.io/gh/NLR-Distribution-Suite/ditto) •  [![Documentation](https://github.com/NLR-Distribution-Suite/ditto/actions/workflows/gh-pages.yml/badge.svg?branch=main)](https://github.com/NLR-Distribution-Suite/ditto/actions/workflows/gh-pages.yml) . [![pages-build-deployment](https://github.com/NLR-Distribution-Suite/ditto/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/NLR-Distribution-Suite/ditto/actions/workflows/pages/pages-build-deployment) . [![Pytest](https://github.com/NLR-Distribution-Suite/ditto/actions/workflows/pull_request_tests.yml/badge.svg)](https://github.com/NLR-Distribution-Suite/ditto/actions/workflows/pull_request_tests.yml) . [![Upload to PyPi](https://github.com/NLR-Distribution-Suite/ditto/actions/workflows/publish_to_pypi.yaml/badge.svg)](https://github.com/NLR-Distribution-Suite/ditto/actions/workflows/publish_to_pypi.yaml) • [![CodeFactor](https://www.codefactor.io/repository/github/nlr-distribution-suite/ditto/badge)](https://www.codefactor.io/repository/github/nlr-distribution-suite/ditto) • ![MCP Server](https://img.shields.io/badge/MCP_Server-enabled-brightgreen) • ![MCP Tools](https://img.shields.io/badge/MCP_Tools-12-blue) • [![PyPI Downloads](https://static.pepy.tech/personalized-badge/nrel-ditto?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/nrel-ditto)
 
 # DiTTo
@@ -134,7 +134,9 @@ system = DistributionSystem.from_json(Path("IEEE13NODE.json"))
 |--------|--------|-------------|
 | OpenDSS | ✅ Complete | Full support for OpenDSS models |
 | CIM/IEC 61968-13 | ✅ Complete | Common Information Model support |
-| CYME | 🚧 In Progress | CYME network models |
+| CYME | ✅ Complete | CYME network models |
+| Synergi | 🚧 In Progress | Synergi network models |
+
 
 ### Writers (Output)
 
@@ -142,6 +144,7 @@ system = DistributionSystem.from_json(Path("IEEE13NODE.json"))
 |--------|--------|-------------|
 | OpenDSS | ✅ Complete | Full DSS file generation |
 | JSON/GDM | ✅ Complete | Serialized GDM format |
+| CIM/IEC 61968-13 | ✅ Complete | Common Information Model support |
 
 ## Supported Components
 

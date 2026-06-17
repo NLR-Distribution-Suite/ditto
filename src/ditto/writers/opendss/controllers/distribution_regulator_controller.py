@@ -16,6 +16,10 @@ class RegulatorControllerMapper(OpenDSSMapper):
         self.model: RegulatorController = model
         self.xfmr_name = xfmr_name
 
+    def map_tapped_winding(self):
+        # self.system.get_component(component=, name=self.xfmr_name)
+        self.opendss_dict["Winding"] = self.model.tapped_winding
+
     def map_name(self):
         self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
         self.opendss_dict["Transformer"] = self.get_opendss_safe_name(self.xfmr_name)
