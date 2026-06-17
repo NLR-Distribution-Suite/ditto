@@ -134,7 +134,9 @@ system = DistributionSystem.from_json(Path("IEEE13NODE.json"))
 |--------|--------|-------------|
 | OpenDSS | ✅ Complete | Full support for OpenDSS models |
 | CIM/IEC 61968-13 | ✅ Complete | Common Information Model support |
-| CYME | 🚧 In Progress | CYME network models |
+| CYME | ✅ Complete | CYME network models |
+| Synergi | 🚧 In Progress | Synergi network models |
+
 
 ### Writers (Output)
 
@@ -142,6 +144,7 @@ system = DistributionSystem.from_json(Path("IEEE13NODE.json"))
 |--------|--------|-------------|
 | OpenDSS | ✅ Complete | Full DSS file generation |
 | JSON/GDM | ✅ Complete | Serialized GDM format |
+| CIM/IEC 61968-13 | ✅ Complete | Common Information Model support |
 
 ## Supported Components
 

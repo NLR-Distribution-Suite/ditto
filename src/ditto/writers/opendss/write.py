@@ -85,10 +85,9 @@ class Writer(AbstractWriter):
         if model_map.altdss_composition_name != "Transformer":
             return False
 
-        phases = model_map.opendss_dict.get("Phases")
         buses = model_map.opendss_dict.get("Bus", [])
-        if phases != 2 or not buses:
-            return False
+        # if phases != 2 or not buses:
+        #     return False
 
         phase_tokens = self._get_bus_phase_tokens(buses[0])
         phase_tokens = [token for token in phase_tokens if token != "0"]
@@ -302,6 +301,7 @@ class Writer(AbstractWriter):
                             controller_map.populate_opendss_dictionary()
                             controller_dss_string = self._get_dss_string(controller_map)
                             controller_outputs.append((controller_map, controller_dss_string))
+                        break
 
                 output_folder = output_path
                 output_folder, output_redirect = self._build_directory_structure(
@@ -340,6 +340,7 @@ class Writer(AbstractWriter):
 
                 for model_map_to_write in model_maps_to_write:
                     dss_string = self._get_dss_string(model_map_to_write)
+
                     if dss_string.startswith("new Vsource"):
                         dss_string = dss_string.replace("new Vsource", "Clear\n\nNew Circuit")
 
