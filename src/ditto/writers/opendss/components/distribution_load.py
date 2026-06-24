@@ -48,6 +48,13 @@ class DistributionLoadMapper(OpenDSSMapper):
         # TODO: Should we include the phases its connected to here?
 
         nom_voltage = self.model.bus.rated_voltage.to("kV").magnitude
+        voltage_type = self.model.bus.voltage_type
+
+        nom_voltage = (
+            nom_voltage / LL_LN_CONVERSION_FACTOR
+            if voltage_type == "line-to-line"
+            else nom_voltage
+        )
 
         if num_phases == 1 and self.model.equipment.connection_type == ConnectionType.STAR:
             self.opendss_dict["kV"] = nom_voltage

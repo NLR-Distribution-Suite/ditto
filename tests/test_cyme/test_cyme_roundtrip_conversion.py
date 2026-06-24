@@ -56,6 +56,8 @@ def test_cyme_to_opendss_ieee13(tmp_path):
         reference_metrics, converted_metrics, rtol=0.01, atol=0.01
     ), f"CYME-to-OpenDSS conversion metrics differ from reference.\n{comparison.T}"
 
+    cyme_reader.get_system().kron_reduce()
+
 
 def test_cyme_to_opendss_ieee123(tmp_path):
     """Convert CYME ieee_123_node to OpenDSS in .dump/converted and compare metrics."""
@@ -102,3 +104,5 @@ def test_cyme_to_opendss_ieee123(tmp_path):
     assert np.allclose(
         reference_metrics, converted_metrics, rtol=0.01, atol=0.01
     ), f"CYME-to-OpenDSS conversion metrics differ from reference.\n{comparison.T}"
+
+    cyme_reader.get_system().kron_reduce()

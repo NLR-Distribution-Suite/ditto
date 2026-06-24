@@ -33,12 +33,13 @@ class MatrixImpedanceBranchEquipmentMapper(CymeMapper):
             R = np.array([[r_s]], dtype=float)
         return R
 
-    def _reduce(self, matrix):
-        # Remove zero rows and columns to reduce matrix size to match number of phases
+    def _get_reduction_mask(self, matrix):
         non_zero_rows = ~np.all(matrix == 0, axis=1)
         non_zero_cols = ~np.all(matrix == 0, axis=0)
-        reduced_matrix = matrix[np.ix_(non_zero_rows, non_zero_cols)]
-        return reduced_matrix
+        return non_zero_rows | non_zero_cols
+
+    def _reduce(self, matrix, mask):
+        return matrix[np.ix_(mask, mask)]
 
     def parse(self, row, phases):
         num_phases = len(phases)
@@ -47,12 +48,13 @@ class MatrixImpedanceBranchEquipmentMapper(CymeMapper):
         x_matrix = self.map_x_matrix(row, num_phases)
         c_matrix = self.map_c_matrix(row, num_phases)
         ampacity = self.map_ampacity(row)
+        mask = self._get_reduction_mask(r_matrix) | self._get_reduction_mask(x_matrix)
         try:
             model = MatrixImpedanceBranchEquipment(
                 name=name,
-                r_matrix=self._reduce(r_matrix),
-                x_matrix=self._reduce(x_matrix),
-                c_matrix=self._reduce(c_matrix),
+                r_matrix=self._reduce(r_matrix, mask),
+                x_matrix=self._reduce(x_matrix, mask),
+                c_matrix=self._reduce(c_matrix, mask),
                 ampacity=ampacity,
             )
             return model
