@@ -96,6 +96,7 @@ def get_capacitors(system: System) -> list[DistributionCapacitor]:
             phase_capacitor_equipment_catalog, capacitor_equipment_catalog
         )
         bus1 = buses[0].split(".")[0]
+        states = odd.Capacitors.States()
         capacitors.append(
             DistributionCapacitor.model_construct(
                 name=odd.Capacitors.Name().lower(),
@@ -103,6 +104,7 @@ def get_capacitors(system: System) -> list[DistributionCapacitor]:
                 phases=[PHASE_MAPPER[el] for el in nodes],
                 controllers=[],
                 equipment=equipment,
+                state=[bool(s) for s in states],
             )
         )
         flag = odd.Capacitors.Next()
