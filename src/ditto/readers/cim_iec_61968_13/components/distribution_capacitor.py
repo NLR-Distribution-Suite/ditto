@@ -10,12 +10,15 @@ class DistributionCapacitorMapper(CimMapper):
         super().__init__(system)
 
     def parse(self, row):
+        equipment = self.map_equipment(row)
+        num_banks = max((pc.num_banks for pc in equipment.phase_capacitors), default=1)
         return DistributionCapacitor(
             name=self.map_name(row),
             bus=self.map_bus(row),
             phases=self.map_phases(row),
             controllers=self.map_controllers(row),
-            equipment=self.map_equipment(row),
+            equipment=equipment,
+            state=[True] * num_banks,
         )
 
     def map_name(self, row):

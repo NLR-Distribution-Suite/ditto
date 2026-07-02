@@ -58,7 +58,12 @@ class Reader(AbstractReader):
         if components:
             for component in components:
                 try:
-                    component.__class__.model_validate(component.model_dump())
+                    dump = component.model_dump()
+                    # Exclude computed fields — they are derived, not input fields,
+                    # and model_validate rejects them as extra inputs.
+                    for field_name in component.__class__.model_computed_fields:
+                        dump.pop(field_name, None)
+                    component.__class__.model_validate(dump)
                 except ValidationError as e:
                     for error in e.errors():
                         self.validation_errors.append(

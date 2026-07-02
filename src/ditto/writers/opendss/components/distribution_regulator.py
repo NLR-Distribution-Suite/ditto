@@ -56,5 +56,13 @@ class DistributionRegulatorMapper(OpenDSSMapper):
         equipment = self.model.equipment
         self.opendss_dict["XfmrCode"] = self.get_opendss_safe_name(equipment.name)
 
+    def map_tap_positions(self):
+        if self.model.tap_positions is not None:
+            for i, taps in enumerate(self.model.tap_positions, start=1):
+                if len(taps) == 1:
+                    self.opendss_dict[f"Tap_wdg{i}"] = taps[0]
+                else:
+                    self.opendss_dict[f"Taps_wdg{i}"] = taps
+
     def map_controllers(self):
         ...
