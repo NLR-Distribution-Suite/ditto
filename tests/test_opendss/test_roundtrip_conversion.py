@@ -34,4 +34,4 @@ def test_opendss_roundtrip_converion(DSS_MODEL, tmp_path):
     post_converion_metrics = get_metrics(dss_master_file)
     assert np.allclose(
         pre_converion_metrics, post_converion_metrics, rtol=0.01, atol=0.01
-    ), "Round trip coversion exceeds error tolerance"
+    ), f"Round trip coversion exceeds error tolerance, \npre: {pre_converion_metrics}, \npost: {post_converion_metrics}"

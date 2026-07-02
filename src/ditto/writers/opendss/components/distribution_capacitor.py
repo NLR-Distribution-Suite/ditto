@@ -64,10 +64,16 @@ class DistributionCapacitorMapper(OpenDSSMapper):
             total_rated_reactive_power.append(
                 phase_capacitor.rated_reactive_power.to("kvar").magnitude
             )  # from general capacitor equipment
-            self.opendss_dict["States"] = [1] * num_banks
         self.opendss_dict["R"] = [sum(total_resistance) / num_banks] * num_banks
         self.opendss_dict["XL"] = [sum(total_reactance) / num_banks] * num_banks
         total_kvar_per_bank = sum(total_rated_reactive_power) / num_banks
         self.opendss_dict["kvar"] = [total_kvar_per_bank] * num_banks
+
+    def map_state(self):
+        # OpenDSS States array length must match NumSteps (equipment num_banks).
+        # Derive from per-phase equipment since state may have different semantics.
+        pc = self.model.equipment.phase_capacitors[0]
+        num_on = min(sum(self.model.state), pc.num_banks)
+        self.opendss_dict["States"] = [1] * num_on + [0] * (pc.num_banks - num_on)
 
         # TODO: We're not building equipment for the Capacitors. This means that there's no guarantee that we're addressing all of the attributes in the equipment in a structured way like we are for the component.
