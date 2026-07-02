@@ -4,8 +4,17 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  make-pages:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -22,10 +31,22 @@ jobs:
           cd docs
           make clean
           make html
-      - name: deploy
-        uses: peaceiris/actions-gh-pages@v4.1.0
+      - name: setup pages
+        uses: actions/configure-pages@v5
+      - name: upload pages artifact
+        uses: actions/upload-pages-artifact@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/_build/html
-          force_orphan: true
-          full_commit_message: ${{ github.event.head_commit.message }}
+          path: ./docs/_build/html
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: deploy
+        id: deployment
+        uses: actions/deploy-pages@v5
