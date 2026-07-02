@@ -24,6 +24,9 @@ class RegulatorControllerMapper(OpenDSSMapper):
         self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
         self.opendss_dict["Transformer"] = self.get_opendss_safe_name(self.xfmr_name)
 
+    def map_tapped_winding(self):
+        self.opendss_dict["Winding"] = self.model.tapped_winding
+
     def map_delay(self):
         self.opendss_dict["TapDelay"] = self.model.delay.to("s").magnitude
 
