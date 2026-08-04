@@ -98,13 +98,17 @@ class TestOpenDSSModel:
     def test_write_opendss(self, tmp_path):
         out = tmp_path / "opendss_out"
         result = write_opendss(name="ieee13", output_path=str(out))
-        assert "written" in result.lower() or "OpenDSS" in result
+        assert result["success"] is True
+        assert "OpenDSS model written" in result["message"]
+        assert result["output_path"] == str(out.resolve())
         assert out.exists()
 
     def test_export_gdm_json(self, tmp_path):
         json_path = tmp_path / "model.json"
         result = export_gdm_json(name="ieee13", output_path=str(json_path))
-        assert "exported" in result.lower() or "JSON" in result
+        assert result["success"] is True
+        assert "GDM JSON exported" in result["message"]
+        assert result["output_path"] == str(json_path.resolve())
         assert json_path.exists()
 
     def test_load_gdm_json_roundtrip(self, tmp_path):
@@ -151,7 +155,9 @@ class TestCIMModel:
     def test_export_gdm_json(self, tmp_path):
         json_path = tmp_path / "cim_model.json"
         result = export_gdm_json(name="cim13", output_path=str(json_path))
-        assert "exported" in result.lower() or "JSON" in result
+        assert result["success"] is True
+        assert "GDM JSON exported" in result["message"]
+        assert result["output_path"] == str(json_path.resolve())
         assert json_path.exists()
 
 
@@ -175,7 +181,9 @@ class TestConvertModel:
             input_path=str(_IEEE13_DSS),
             output_path=str(out),
         )
-        assert "complete" in result.lower()
+        assert result["success"] is True
+        assert "complete" in result["message"].lower()
+        assert result["output_path"] == str(out.resolve())
         assert out.exists()
 
     def test_convert_unknown_reader(self, tmp_path):

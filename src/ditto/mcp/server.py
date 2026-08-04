@@ -308,7 +308,7 @@ def write_opendss(
     output_path: str = "./opendss_output",
     separate_substations: bool = True,
     separate_feeders: bool = True,
-) -> str:
+) -> dict[str, Any]:
     """Write a loaded system to OpenDSS format.
 
     Parameters
@@ -324,8 +324,9 @@ def write_opendss(
 
     Returns
     -------
-    str
-        Confirmation message with the output path.
+    dict
+        ``{success, output_path, message}`` — ``output_path`` is the absolute
+        output directory (so orchestrators can track/attach it as an artifact).
     """
     from ditto.writers.opendss.write import Writer
 
@@ -338,13 +339,17 @@ def write_opendss(
         separate_substations=separate_substations,
         separate_feeders=separate_feeders,
     )
-    return f"OpenDSS model written to {out}"
+    return {
+        "success": True,
+        "output_path": str(out),
+        "message": f"OpenDSS model written to {out}",
+    }
 
 
 def export_gdm_json(
     name: str = "default",
     output_path: str = "./model.json",
-) -> str:
+) -> dict[str, Any]:
     """Serialize a loaded system to GDM JSON format.
 
     Parameters
@@ -356,13 +361,18 @@ def export_gdm_json(
 
     Returns
     -------
-    str
-        Confirmation message.
+    dict
+        ``{success, output_path, message}`` — ``output_path`` is the absolute
+        JSON path (so orchestrators can track/attach it as an artifact).
     """
     system = _SYNC_STATE.get(name)
     out = Path(output_path).resolve()
     system.to_json(out, overwrite=True)
-    return f"GDM JSON exported to {out}"
+    return {
+        "success": True,
+        "output_path": str(out),
+        "message": f"GDM JSON exported to {out}",
+    }
 
 
 def convert_model(
@@ -371,7 +381,7 @@ def convert_model(
     input_path: str,
     output_path: str = "./converted_output",
     save_gdm: str | None = None,
-) -> str:
+) -> dict[str, Any]:
     """Run a full format conversion (reader → GDM → writer).
 
     This is the MCP equivalent of the ``ditto_cli convert`` command.
@@ -391,8 +401,10 @@ def convert_model(
 
     Returns
     -------
-    str
-        Confirmation message.
+    dict
+        ``{success, output_path, gdm_path, message}`` — ``output_path`` is the
+        absolute writer output (so orchestrators can track/attach it as an
+        artifact); ``gdm_path`` is set when ``save_gdm`` was requested.
     """
     available_readers = _list_subpackages("ditto.readers")
     available_writers = _list_subpackages("ditto.writers")
@@ -410,6 +422,7 @@ def convert_model(
 
     system = reader_instance.get_system()
 
+    gdm_path: Path | None = None
     if save_gdm:
         gdm_path = Path(save_gdm).resolve()
         system.to_json(gdm_path, overwrite=True)
@@ -421,9 +434,14 @@ def convert_model(
     writer_instance.write(out)
 
     msg = f"Conversion complete: {reader_type} → {writer_type}.  Output: {out}"
-    if save_gdm:
+    if gdm_path is not None:
         msg += f"  GDM JSON saved to {gdm_path}"
-    return msg
+    return {
+        "success": True,
+        "output_path": str(out),
+        "gdm_path": str(gdm_path) if gdm_path is not None else None,
+        "message": msg,
+    }
 
 
 def _get_tools() -> list[Tool]:
