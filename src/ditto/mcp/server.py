@@ -1,29 +1,46 @@
-"""DiTTo MCP Server — Model Context Protocol interface for the Distribution Transformation Tool.
+"""DiTTo MCP Server — low-level MCP 2.0 interface.
 
 Exposes DiTTo's reader/writer pipeline, model inspection, and documentation
-as MCP tools, resources, and prompts.  Uses a module-level ``AppState``
+as MCP tools, resources, and prompts. Uses a module-level ``AppState``
 singleton to hold loaded ``DistributionSystem`` instances across calls.
-
-Run directly::
-
-    python -m ditto.mcp.server        # stdio transport (default)
-    ditto_mcp                          # via entry-point
-
-Or in development with the MCP inspector::
-
-    uv run mcp dev src/ditto/mcp/server.py --with-editable .
 """
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import json
 import pkgutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-from mcp.server.fastmcp import FastMCP
 from loguru import logger
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp.types import (
+    CallToolRequestParams,
+    CallToolResult,
+    GetPromptRequestParams,
+    GetPromptResult,
+    ListPromptsRequest,
+    ListPromptsResult,
+    ListResourceTemplatesRequest,
+    ListResourceTemplatesResult,
+    ListResourcesRequest,
+    ListResourcesResult,
+    ListToolsRequest,
+    ListToolsResult,
+    Prompt,
+    PromptArgument,
+    PromptMessage,
+    ReadResourceRequestParams,
+    ReadResourceResult,
+    Resource,
+    ResourceTemplate,
+    TextContent,
+    TextResourceContents,
+    Tool,
+)
 
 from ditto.mcp.docs import list_doc_pages, read_doc_page
 from ditto.mcp.state import AppState
@@ -32,17 +49,8 @@ from ditto.mcp.state import AppState
 # Server instance
 # ---------------------------------------------------------------------------
 
-mcp = FastMCP(
-    "DiTTo",
-    instructions=(
-        "DiTTo (Distribution Transformation Tool) converts electrical "
-        "distribution system models between formats such as OpenDSS and "
-        "CIM IEC 61968-13 via an intermediate Grid-Data-Models (GDM) "
-        "DistributionSystem representation.  Use the available tools to "
-        "list readers/writers, load models, inspect components, and "
-        "write output files.  Documentation is available as resources."
-    ),
-)
+mcp = Server("DiTTo")
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -110,13 +118,11 @@ def _safe_json(obj: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
 def list_readers() -> list[str]:
     """List available reader formats (e.g. opendss, cim_iec_61968_13)."""
     return _list_subpackages("ditto.readers")
 
 
-@mcp.tool()
 def list_writers() -> list[str]:
     """List available writer formats (e.g. opendss)."""
     return _list_subpackages("ditto.writers")
@@ -127,7 +133,6 @@ def list_writers() -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
 def read_opendss_model(
     master_file: str,
     name: str = "default",
@@ -156,14 +161,10 @@ def read_opendss_model(
     reader = Reader(path, crs=crs)
     system = reader.get_system()
 
-    # We need to store in a module-level dict since this is a sync tool
-    # and ctx is only available in async tools with type annotation.
-    # Instead, use the _SYNC_STATE fallback.
     _SYNC_STATE.store(name, system)
     return _SYNC_STATE.summary(name)
 
 
-@mcp.tool()
 def read_cim_model(
     cim_file: str,
     name: str = "default",
@@ -187,7 +188,6 @@ def read_cim_model(
     return _SYNC_STATE.summary(name)
 
 
-@mcp.tool()
 def load_gdm_json(
     json_file: str,
     name: str = "default",
@@ -214,13 +214,11 @@ def load_gdm_json(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
 def list_loaded_systems() -> list[str]:
     """Return the names of all distribution systems currently loaded in memory."""
     return list(_SYNC_STATE.systems.keys())
 
 
-@mcp.tool()
 def get_system_summary(name: str = "default") -> dict[str, Any]:
     """Return a summary of a loaded distribution system (component counts, etc.).
 
@@ -232,7 +230,6 @@ def get_system_summary(name: str = "default") -> dict[str, Any]:
     return _SYNC_STATE.summary(name)
 
 
-@mcp.tool()
 def get_components(
     component_type: str,
     name: str = "default",
@@ -262,7 +259,6 @@ def get_components(
         if i >= limit:
             break
         entry: dict[str, Any] = {"name": comp.name}
-        # Add a few common attribute summaries
         for attr in (
             "rated_voltage",
             "phases",
@@ -280,7 +276,6 @@ def get_components(
     return results
 
 
-@mcp.tool()
 def get_component_detail(
     component_type: str,
     component_name: str,
@@ -308,13 +303,12 @@ def get_component_detail(
 # ---------------------------------------------------------------------------
 
 
-@mcp.tool()
 def write_opendss(
     name: str = "default",
     output_path: str = "./opendss_output",
     separate_substations: bool = True,
     separate_feeders: bool = True,
-) -> str:
+) -> dict[str, Any]:
     """Write a loaded system to OpenDSS format.
 
     Parameters
@@ -330,8 +324,9 @@ def write_opendss(
 
     Returns
     -------
-    str
-        Confirmation message with the output path.
+    dict
+        ``{success, output_path, message}`` — ``output_path`` is the absolute
+        output directory (so orchestrators can track/attach it as an artifact).
     """
     from ditto.writers.opendss.write import Writer
 
@@ -344,14 +339,17 @@ def write_opendss(
         separate_substations=separate_substations,
         separate_feeders=separate_feeders,
     )
-    return f"OpenDSS model written to {out}"
+    return {
+        "success": True,
+        "output_path": str(out),
+        "message": f"OpenDSS model written to {out}",
+    }
 
 
-@mcp.tool()
 def export_gdm_json(
     name: str = "default",
     output_path: str = "./model.json",
-) -> str:
+) -> dict[str, Any]:
     """Serialize a loaded system to GDM JSON format.
 
     Parameters
@@ -363,23 +361,27 @@ def export_gdm_json(
 
     Returns
     -------
-    str
-        Confirmation message.
+    dict
+        ``{success, output_path, message}`` — ``output_path`` is the absolute
+        JSON path (so orchestrators can track/attach it as an artifact).
     """
     system = _SYNC_STATE.get(name)
     out = Path(output_path).resolve()
     system.to_json(out, overwrite=True)
-    return f"GDM JSON exported to {out}"
+    return {
+        "success": True,
+        "output_path": str(out),
+        "message": f"GDM JSON exported to {out}",
+    }
 
 
-@mcp.tool()
 def convert_model(
     reader_type: str,
     writer_type: str,
     input_path: str,
     output_path: str = "./converted_output",
     save_gdm: str | None = None,
-) -> str:
+) -> dict[str, Any]:
     """Run a full format conversion (reader → GDM → writer).
 
     This is the MCP equivalent of the ``ditto_cli convert`` command.
@@ -399,8 +401,10 @@ def convert_model(
 
     Returns
     -------
-    str
-        Confirmation message.
+    dict
+        ``{success, output_path, gdm_path, message}`` — ``output_path`` is the
+        absolute writer output (so orchestrators can track/attach it as an
+        artifact); ``gdm_path`` is set when ``save_gdm`` was requested.
     """
     available_readers = _list_subpackages("ditto.readers")
     available_writers = _list_subpackages("ditto.writers")
@@ -418,6 +422,7 @@ def convert_model(
 
     system = reader_instance.get_system()
 
+    gdm_path: Path | None = None
     if save_gdm:
         gdm_path = Path(save_gdm).resolve()
         system.to_json(gdm_path, overwrite=True)
@@ -429,24 +434,242 @@ def convert_model(
     writer_instance.write(out)
 
     msg = f"Conversion complete: {reader_type} → {writer_type}.  Output: {out}"
-    if save_gdm:
+    if gdm_path is not None:
         msg += f"  GDM JSON saved to {gdm_path}"
-    return msg
+    return {
+        "success": True,
+        "output_path": str(out),
+        "gdm_path": str(gdm_path) if gdm_path is not None else None,
+        "message": msg,
+    }
 
 
-# ---------------------------------------------------------------------------
-# Resources — Documentation
-# ---------------------------------------------------------------------------
+def _get_tools() -> list[Tool]:
+    return [
+        Tool(
+            name="list_readers",
+            description="List available reader formats (e.g. opendss, cim_iec_61968_13).",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="list_writers",
+            description="List available writer formats (e.g. opendss).",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="read_opendss_model",
+            description="Load an OpenDSS model from a master .dss file into memory.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "master_file": {
+                        "type": "string",
+                        "description": "Absolute or relative path to the OpenDSS master file.",
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Key to store the loaded system under. Use list_loaded_systems to see all loaded names.",
+                        "default": "default",
+                    },
+                    "crs": {
+                        "type": ["string", "null"],
+                        "description": "Optional coordinate reference system identifier.",
+                        "default": None,
+                    },
+                },
+                "required": ["master_file"],
+            },
+        ),
+        Tool(
+            name="read_cim_model",
+            description="Load a CIM IEC 61968-13 XML model into memory.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "cim_file": {
+                        "type": "string",
+                        "description": "Path to the CIM XML file.",
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Key to store the loaded system under.",
+                        "default": "default",
+                    },
+                },
+                "required": ["cim_file"],
+            },
+        ),
+        Tool(
+            name="load_gdm_json",
+            description="Load a previously-exported GDM DistributionSystem from JSON.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "json_file": {"type": "string", "description": "Path to the GDM JSON file."},
+                    "name": {
+                        "type": "string",
+                        "description": "Key to store the loaded system under.",
+                        "default": "default",
+                    },
+                },
+                "required": ["json_file"],
+            },
+        ),
+        Tool(
+            name="list_loaded_systems",
+            description="Return the names of all distribution systems currently loaded in memory.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="get_system_summary",
+            description="Return a summary of a loaded distribution system (component counts, etc.).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The key under which the system was loaded.",
+                        "default": "default",
+                    }
+                },
+            },
+        ),
+        Tool(
+            name="get_components",
+            description="List components of a given type from a loaded system.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "component_type": {
+                        "type": "string",
+                        "description": "GDM class name, e.g. DistributionBus, DistributionLoad, MatrixImpedanceBranch, DistributionTransformer.",
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "System key.",
+                        "default": "default",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of components to return (default 50).",
+                        "default": 50,
+                    },
+                },
+                "required": ["component_type"],
+            },
+        ),
+        Tool(
+            name="get_component_detail",
+            description="Return the full detail of a single component (all fields).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "component_type": {
+                        "type": "string",
+                        "description": "GDM class name, e.g. DistributionBus.",
+                    },
+                    "component_name": {
+                        "type": "string",
+                        "description": "The name attribute of the component to retrieve.",
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "System key.",
+                        "default": "default",
+                    },
+                },
+                "required": ["component_type", "component_name"],
+            },
+        ),
+        Tool(
+            name="write_opendss",
+            description="Write a loaded system to OpenDSS format.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "System key of the model to export.",
+                        "default": "default",
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Directory where .dss files will be written.",
+                        "default": "./opendss_output",
+                    },
+                    "separate_substations": {
+                        "type": "boolean",
+                        "description": "Create separate directories per substation.",
+                        "default": True,
+                    },
+                    "separate_feeders": {
+                        "type": "boolean",
+                        "description": "Create separate directories per feeder.",
+                        "default": True,
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="export_gdm_json",
+            description="Serialize a loaded system to GDM JSON format.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "System key.",
+                        "default": "default",
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Destination file path for the JSON export.",
+                        "default": "./model.json",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="convert_model",
+            description="Run a full format conversion (reader → GDM → writer).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "reader_type": {
+                        "type": "string",
+                        "description": "Reader sub-package name (e.g. opendss, cim_iec_61968_13).",
+                    },
+                    "writer_type": {
+                        "type": "string",
+                        "description": "Writer sub-package name (e.g. opendss).",
+                    },
+                    "input_path": {
+                        "type": "string",
+                        "description": "Path to the source model file / directory.",
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Directory for writer output files.",
+                        "default": "./converted_output",
+                    },
+                    "save_gdm": {
+                        "type": ["string", "null"],
+                        "description": "Optional path to save the intermediate GDM JSON.",
+                        "default": None,
+                    },
+                },
+                "required": ["reader_type", "writer_type", "input_path"],
+            },
+        ),
+    ]
 
 
-@mcp.resource("ditto://docs")
 def docs_index() -> str:
     """List all available DiTTo documentation pages."""
     pages = list_doc_pages()
     return json.dumps(pages, indent=2)
 
 
-@mcp.resource("ditto://docs/{page}")
 def docs_page(page: str) -> str:
     """Read a specific DiTTo documentation page by slug.
 
@@ -456,12 +679,6 @@ def docs_page(page: str) -> str:
     return read_doc_page(page)
 
 
-# ---------------------------------------------------------------------------
-# Prompts
-# ---------------------------------------------------------------------------
-
-
-@mcp.prompt(description="Step-by-step guide for converting a distribution model between formats")
 def convert_guide() -> str:
     """Interactive conversion workflow prompt."""
     return (
@@ -481,7 +698,6 @@ def convert_guide() -> str:
     )
 
 
-@mcp.prompt(description="Explore a loaded distribution system model interactively")
 def inspect_model(name: str = "default") -> str:
     """Interactive model inspection prompt."""
     return (
@@ -496,23 +712,161 @@ def inspect_model(name: str = "default") -> str:
     )
 
 
+def _tool_handler(fn: Callable[..., Any], arguments: dict[str, Any] | None) -> Any:
+    return fn(**(arguments or {}))
+
+
+_TOOL_HANDLERS: dict[str, Callable[..., Any]] = {
+    "list_readers": list_readers,
+    "list_writers": list_writers,
+    "read_opendss_model": read_opendss_model,
+    "read_cim_model": read_cim_model,
+    "load_gdm_json": load_gdm_json,
+    "list_loaded_systems": list_loaded_systems,
+    "get_system_summary": get_system_summary,
+    "get_components": get_components,
+    "get_component_detail": get_component_detail,
+    "write_opendss": write_opendss,
+    "export_gdm_json": export_gdm_json,
+    "convert_model": convert_model,
+}
+
+
+async def _handle_list_tools(ctx: Any, params: ListToolsRequest) -> ListToolsResult:
+    del ctx, params
+    return ListToolsResult(tools=_get_tools())
+
+
+async def _handle_call_tool(ctx: Any, params: CallToolRequestParams) -> CallToolResult:
+    del ctx
+    name = params.name
+    arguments = params.arguments or {}
+    try:
+        fn = _TOOL_HANDLERS.get(name)
+        if fn is None:
+            raise ValueError(f"Unknown tool: {name}")
+        result = _tool_handler(fn, arguments)
+        text = json.dumps(result, indent=2, default=str)
+    except Exception as e:
+        text = json.dumps({"error": str(e)})
+    return CallToolResult(content=[TextContent(type="text", text=text)])
+
+
+async def _handle_list_resources(ctx: Any, params: ListResourcesRequest) -> ListResourcesResult:
+    del ctx, params
+    return ListResourcesResult(
+        resources=[
+            Resource(
+                name="DiTTo Documentation Index",
+                uri="ditto://docs",
+                description="List all available DiTTo documentation pages.",
+                mimeType="application/json",
+            )
+        ]
+    )
+
+
+async def _handle_list_resource_templates(
+    ctx: Any, params: ListResourceTemplatesRequest
+) -> ListResourceTemplatesResult:
+    del ctx, params
+    return ListResourceTemplatesResult(
+        resourceTemplates=[
+            ResourceTemplate(
+                name="DiTTo Documentation Page",
+                uriTemplate="ditto://docs/{page}",
+                description="Read a specific DiTTo documentation page by slug.",
+                mimeType="text/markdown",
+            )
+        ]
+    )
+
+
+async def _handle_read_resource(ctx: Any, params: ReadResourceRequestParams) -> ReadResourceResult:
+    del ctx
+    uri = str(params.uri)
+    if uri == "ditto://docs":
+        text = docs_index()
+        mime_type = "application/json"
+    elif uri.startswith("ditto://docs/"):
+        page = uri[len("ditto://docs/") :]
+        text = docs_page(page)
+        mime_type = "text/markdown"
+    else:
+        text = json.dumps({"error": f"Unknown resource URI: {uri}"})
+        mime_type = "application/json"
+
+    return ReadResourceResult(
+        contents=[TextResourceContents(uri=uri, mimeType=mime_type, text=text)]
+    )
+
+
+async def _handle_list_prompts(ctx: Any, params: ListPromptsRequest) -> ListPromptsResult:
+    del ctx, params
+    return ListPromptsResult(
+        prompts=[
+            Prompt(
+                name="convert_guide",
+                description="Step-by-step guide for converting a distribution model between formats",
+            ),
+            Prompt(
+                name="inspect_model",
+                description="Explore a loaded distribution system model interactively",
+                arguments=[
+                    PromptArgument(
+                        name="name",
+                        description="System key to inspect (defaults to 'default').",
+                        required=False,
+                    )
+                ],
+            ),
+        ]
+    )
+
+
+async def _handle_get_prompt(ctx: Any, params: GetPromptRequestParams) -> GetPromptResult:
+    del ctx
+    if params.name == "convert_guide":
+        text = convert_guide()
+    elif params.name == "inspect_model":
+        name = "default"
+        if params.arguments:
+            name = params.arguments.get("name", "default")
+        text = inspect_model(name=name)
+    else:
+        text = json.dumps({"error": f"Unknown prompt: {params.name}"})
+
+    return GetPromptResult(
+        messages=[PromptMessage(role="user", content=TextContent(type="text", text=text))]
+    )
+
+
+mcp.add_request_handler("tools/list", ListToolsRequest, _handle_list_tools)
+mcp.add_request_handler("tools/call", CallToolRequestParams, _handle_call_tool)
+mcp.add_request_handler("resources/list", ListResourcesRequest, _handle_list_resources)
+mcp.add_request_handler(
+    "resources/templates/list", ListResourceTemplatesRequest, _handle_list_resource_templates
+)
+mcp.add_request_handler("resources/read", ReadResourceRequestParams, _handle_read_resource)
+mcp.add_request_handler("prompts/list", ListPromptsRequest, _handle_list_prompts)
+mcp.add_request_handler("prompts/get", GetPromptRequestParams, _handle_get_prompt)
+
+
 # ---------------------------------------------------------------------------
 # Module-level sync state
 # ---------------------------------------------------------------------------
-# FastMCP sync tool functions cannot receive Context, so we use a
-# module-level AppState singleton to persist loaded systems across calls.
 
 _SYNC_STATE = AppState()
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
+async def serve() -> None:
+    async with stdio_server() as (read_stream, write_stream):
+        await mcp.run(read_stream, write_stream, mcp.create_initialization_options())
 
 
-def main():
+def main() -> None:
     """Run the DiTTo MCP server (stdio transport)."""
-    mcp.run()
+    asyncio.run(serve())
 
 
 if __name__ == "__main__":
