@@ -224,7 +224,6 @@ def _build_synthetic_system() -> DistributionSystem:
                 for ph in [Phase.A, Phase.B, Phase.C]
             ],
         ),
-        state=[True],
     )
 
     switch_equipment = MatrixImpedanceSwitchEquipment(

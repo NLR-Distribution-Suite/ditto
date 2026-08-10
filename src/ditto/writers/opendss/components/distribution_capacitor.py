@@ -71,9 +71,11 @@ class DistributionCapacitorMapper(OpenDSSMapper):
 
     def map_state(self):
         # OpenDSS States array length must match NumSteps (equipment num_banks).
-        # Derive from per-phase equipment since state may have different semantics.
         pc = self.model.equipment.phase_capacitors[0]
-        num_on = min(sum(self.model.state), pc.num_banks)
+        if self.model.in_service:
+            num_on = min(pc.num_banks_on, pc.num_banks)
+        else:
+            num_on = 0
         self.opendss_dict["States"] = [1] * num_on + [0] * (pc.num_banks - num_on)
 
         # TODO: We're not building equipment for the Capacitors. This means that there's no guarantee that we're addressing all of the attributes in the equipment in a structured way like we are for the component.

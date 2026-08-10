@@ -17,28 +17,16 @@ from typing import Any, Callable
 from loguru import logger
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
+from pydantic import AnyUrl
+
 from mcp.types import (
-    CallToolRequestParams,
-    CallToolResult,
-    GetPromptRequestParams,
     GetPromptResult,
-    ListPromptsRequest,
-    ListPromptsResult,
-    ListResourceTemplatesRequest,
-    ListResourceTemplatesResult,
-    ListResourcesRequest,
-    ListResourcesResult,
-    ListToolsRequest,
-    ListToolsResult,
     Prompt,
     PromptArgument,
     PromptMessage,
-    ReadResourceRequestParams,
-    ReadResourceResult,
     Resource,
     ResourceTemplate,
     TextContent,
-    TextResourceContents,
     Tool,
 )
 
@@ -732,15 +720,14 @@ _TOOL_HANDLERS: dict[str, Callable[..., Any]] = {
 }
 
 
-async def _handle_list_tools(ctx: Any, params: ListToolsRequest) -> ListToolsResult:
-    del ctx, params
-    return ListToolsResult(tools=_get_tools())
+@mcp.list_tools()
+async def _handle_list_tools() -> list[Tool]:
+    return _get_tools()
 
 
-async def _handle_call_tool(ctx: Any, params: CallToolRequestParams) -> CallToolResult:
-    del ctx
-    name = params.name
-    arguments = params.arguments or {}
+@mcp.call_tool()
+async def _handle_call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
+    arguments = arguments or {}
     try:
         fn = _TOOL_HANDLERS.get(name)
         if fn is None:
@@ -749,107 +736,80 @@ async def _handle_call_tool(ctx: Any, params: CallToolRequestParams) -> CallTool
         text = json.dumps(result, indent=2, default=str)
     except Exception as e:
         text = json.dumps({"error": str(e)})
-    return CallToolResult(content=[TextContent(type="text", text=text)])
+    return [TextContent(type="text", text=text)]
 
 
-async def _handle_list_resources(ctx: Any, params: ListResourcesRequest) -> ListResourcesResult:
-    del ctx, params
-    return ListResourcesResult(
-        resources=[
-            Resource(
-                name="DiTTo Documentation Index",
-                uri="ditto://docs",
-                description="List all available DiTTo documentation pages.",
-                mimeType="application/json",
-            )
-        ]
-    )
+@mcp.list_resources()
+async def _handle_list_resources() -> list[Resource]:
+    return [
+        Resource(
+            name="DiTTo Documentation Index",
+            uri="ditto://docs",
+            description="List all available DiTTo documentation pages.",
+            mimeType="application/json",
+        )
+    ]
 
 
-async def _handle_list_resource_templates(
-    ctx: Any, params: ListResourceTemplatesRequest
-) -> ListResourceTemplatesResult:
-    del ctx, params
-    return ListResourceTemplatesResult(
-        resourceTemplates=[
-            ResourceTemplate(
-                name="DiTTo Documentation Page",
-                uriTemplate="ditto://docs/{page}",
-                description="Read a specific DiTTo documentation page by slug.",
-                mimeType="text/markdown",
-            )
-        ]
-    )
+@mcp.list_resource_templates()
+async def _handle_list_resource_templates() -> list[ResourceTemplate]:
+    return [
+        ResourceTemplate(
+            name="DiTTo Documentation Page",
+            uriTemplate="ditto://docs/{page}",
+            description="Read a specific DiTTo documentation page by slug.",
+            mimeType="text/markdown",
+        )
+    ]
 
 
-async def _handle_read_resource(ctx: Any, params: ReadResourceRequestParams) -> ReadResourceResult:
-    del ctx
-    uri = str(params.uri)
-    if uri == "ditto://docs":
-        text = docs_index()
-        mime_type = "application/json"
-    elif uri.startswith("ditto://docs/"):
-        page = uri[len("ditto://docs/") :]
-        text = docs_page(page)
-        mime_type = "text/markdown"
-    else:
-        text = json.dumps({"error": f"Unknown resource URI: {uri}"})
-        mime_type = "application/json"
-
-    return ReadResourceResult(
-        contents=[TextResourceContents(uri=uri, mimeType=mime_type, text=text)]
-    )
+@mcp.read_resource()
+async def _handle_read_resource(uri: AnyUrl) -> str:
+    uri_str = str(uri)
+    if uri_str == "ditto://docs":
+        return docs_index()
+    if uri_str.startswith("ditto://docs/"):
+        page = uri_str[len("ditto://docs/") :]
+        return docs_page(page)
+    return json.dumps({"error": f"Unknown resource URI: {uri_str}"})
 
 
-async def _handle_list_prompts(ctx: Any, params: ListPromptsRequest) -> ListPromptsResult:
-    del ctx, params
-    return ListPromptsResult(
-        prompts=[
-            Prompt(
-                name="convert_guide",
-                description="Step-by-step guide for converting a distribution model between formats",
-            ),
-            Prompt(
-                name="inspect_model",
-                description="Explore a loaded distribution system model interactively",
-                arguments=[
-                    PromptArgument(
-                        name="name",
-                        description="System key to inspect (defaults to 'default').",
-                        required=False,
-                    )
-                ],
-            ),
-        ]
-    )
+@mcp.list_prompts()
+async def _handle_list_prompts() -> list[Prompt]:
+    return [
+        Prompt(
+            name="convert_guide",
+            description="Step-by-step guide for converting a distribution model between formats",
+        ),
+        Prompt(
+            name="inspect_model",
+            description="Explore a loaded distribution system model interactively",
+            arguments=[
+                PromptArgument(
+                    name="name",
+                    description="System key to inspect (defaults to 'default').",
+                    required=False,
+                )
+            ],
+        ),
+    ]
 
 
-async def _handle_get_prompt(ctx: Any, params: GetPromptRequestParams) -> GetPromptResult:
-    del ctx
-    if params.name == "convert_guide":
+@mcp.get_prompt()
+async def _handle_get_prompt(name: str, arguments: dict[str, str] | None) -> GetPromptResult:
+    if name == "convert_guide":
         text = convert_guide()
-    elif params.name == "inspect_model":
-        name = "default"
-        if params.arguments:
-            name = params.arguments.get("name", "default")
-        text = inspect_model(name=name)
+    elif name == "inspect_model":
+        system_name = "default"
+        if arguments:
+            system_name = arguments.get("name", "default")
+        text = inspect_model(name=system_name)
     else:
-        text = json.dumps({"error": f"Unknown prompt: {params.name}"})
+        text = json.dumps({"error": f"Unknown prompt: {name}"})
 
     return GetPromptResult(
         messages=[PromptMessage(role="user", content=TextContent(type="text", text=text))]
     )
-
-
-mcp.add_request_handler("tools/list", ListToolsRequest, _handle_list_tools)
-mcp.add_request_handler("tools/call", CallToolRequestParams, _handle_call_tool)
-mcp.add_request_handler("resources/list", ListResourcesRequest, _handle_list_resources)
-mcp.add_request_handler(
-    "resources/templates/list", ListResourceTemplatesRequest, _handle_list_resource_templates
-)
-mcp.add_request_handler("resources/read", ReadResourceRequestParams, _handle_read_resource)
-mcp.add_request_handler("prompts/list", ListPromptsRequest, _handle_list_prompts)
-mcp.add_request_handler("prompts/get", GetPromptRequestParams, _handle_get_prompt)
 
 
 # ---------------------------------------------------------------------------

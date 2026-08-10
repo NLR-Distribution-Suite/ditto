@@ -23,7 +23,6 @@ class DistributionCapacitorMapper(CymeMapper):
         controllers = self.map_controllers(row)
         equipment = self.map_equipment(row, phases)
         in_service = self.map_in_service(row)
-        num_banks = max((pc.num_banks for pc in equipment.phase_capacitors), default=1)
         return DistributionCapacitor.model_construct(
             name=name,
             bus=bus,
@@ -31,7 +30,6 @@ class DistributionCapacitorMapper(CymeMapper):
             controllers=controllers,
             equipment=equipment,
             in_service=in_service,
-            state=[True] * num_banks,
         )
 
     def map_name(self, row):

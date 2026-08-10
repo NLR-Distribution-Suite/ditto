@@ -104,7 +104,7 @@ def get_capacitors(system: System) -> list[DistributionCapacitor]:
                 phases=[PHASE_MAPPER[el] for el in nodes],
                 controllers=[],
                 equipment=equipment,
-                state=[bool(s) for s in states],
+                in_service=any(states),
             )
         )
         flag = odd.Capacitors.Next()
