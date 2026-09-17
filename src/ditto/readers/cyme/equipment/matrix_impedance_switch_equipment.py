@@ -14,10 +14,13 @@ class MatrixImpedanceSwitchEquipmentMapper(CymeMapper):
         super().__init__(system, units=units)
 
     cyme_file = "Equipment"
-    cyme_section = "SWITCH"
+    cyme_section = ["SWITCH", "BREAKER", "SECTIONALIZER"]
 
     def parse(self, row, phases):
+
         name = self.map_name(row, phases)
+        if len(list(self.system.list_components_by_name(MatrixImpedanceSwitchEquipment, name))) > 0:
+            return None
         r_matrix = self.map_r_matrix(phases)
         x_matrix = self.map_x_matrix(phases)
         c_matrix = self.map_c_matrix(phases)

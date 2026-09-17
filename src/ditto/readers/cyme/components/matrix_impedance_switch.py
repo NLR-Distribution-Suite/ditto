@@ -14,7 +14,7 @@ class MatrixImpedanceSwitchMapper(CymeMapper):
         super().__init__(system, units=units)
 
     cyme_file = "Network"
-    cyme_section = "SWITCH SETTING"
+    cyme_section = ["SWITCH SETTING", "BREAKER SETTING", "SECTIONALIZER SETTING"]
 
     def parse(self, row, used_sections, section_id_sections):
         name = self.map_name(row)
