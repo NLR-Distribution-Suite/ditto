@@ -24,6 +24,7 @@ import opendssdirect as odd
 from loguru import logger
 
 from ditto.readers.opendss.common import PHASE_MAPPER, get_equipment_from_catalog
+from ditto.opendss_metadata import OpenDSSTransformerProperties
 
 SEQUENCE_PAIRS = [SequencePair(1, 2), SequencePair(1, 3), SequencePair(2, 3)]
 
@@ -167,6 +168,7 @@ def get_transformers(
     system: System,
     distribution_transformer_equipment_catalog: dict[int, DistributionTransformerEquipment],
     winding_equipment_catalog: dict[int, WindingEquipment],
+    transformer_properties: dict[str, OpenDSSTransformerProperties] | None = None,
 ) -> list[DistributionTransformer]:
     """Method returns a list of DistributionTransformer objects
 
@@ -205,6 +207,16 @@ def get_transformers(
             winding_phases=phases,
             equipment=xfmr_equipment,
         )
+        if transformer_properties is not None:
+            odd.Text.Command(f"? Transformer.{odd.Transformers.Name()}.%imag")
+            result = odd.Text.Result()
+            try:
+                magnetizing_current_pct = float(result)
+            except (TypeError, ValueError):
+                magnetizing_current_pct = None
+            transformer_properties[transformer.name] = OpenDSSTransformerProperties(
+                magnetizing_current_pct=magnetizing_current_pct,
+            )
         transformers.append(transformer)
         flag = odd.Transformers.Next()
 

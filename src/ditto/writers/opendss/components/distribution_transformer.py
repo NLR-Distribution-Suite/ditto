@@ -51,7 +51,14 @@ class DistributionTransformerMapper(OpenDSSMapper):
 
     def map_winding_phases(self):
         primary_winding = self.model.winding_phases[0]
-        self.opendss_dict["Phases"] = len(primary_winding)
+        # A two-conductor delta winding (for example bus phases A-C) is a
+        # one-phase OpenDSS transformer connected line-to-line.  Counting the
+        # bus phase tokens as OpenDSS phases incorrectly emits Phases=2.
+        primary_equipment = self.model.equipment.windings[0]
+        if primary_equipment.connection_type.value == "DELTA" and len(primary_winding) == 2:
+            self.opendss_dict["Phases"] = 1
+        else:
+            self.opendss_dict["Phases"] = len(primary_winding)
 
     def map_tap_positions(self):
         if self.model.tap_positions is not None:

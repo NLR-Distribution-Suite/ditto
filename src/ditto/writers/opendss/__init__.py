@@ -19,6 +19,7 @@ from ditto.writers.opendss.equipment.concentric_cable_equipment import (
 from ditto.writers.opendss.components.distribution_capacitor import DistributionCapacitorMapper
 from ditto.writers.opendss.components.distribution_load import DistributionLoadMapper
 from ditto.writers.opendss.components.distribution_transformer import DistributionTransformerMapper
+from ditto.writers.opendss.components.distribution_reactor import DistributionReactorMapper
 from ditto.writers.opendss.equipment.distribution_transformer_equipment import (
     DistributionTransformerEquipmentMapper,
 )

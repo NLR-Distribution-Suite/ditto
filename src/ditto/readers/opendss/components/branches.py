@@ -2,16 +2,16 @@ from uuid import uuid4
 from enum import Enum
 
 from infrasys import System, Component
-from infrasys.quantities import Time
+from infrasys.quantities import Time, Resistance
 
 from gdm.quantities import (
     CapacitancePULength,
     ResistancePULength,
     ReactancePULength,
+    Reactance,
     Distance,
     Current,
 )
-
 from gdm.distribution.common import TimeCurrentCurve, ThermalLimitSet
 from gdm.distribution.equipment import (
     MatrixImpedanceRecloserEquipment,
@@ -28,7 +28,9 @@ from gdm.distribution.components import (
     MatrixImpedanceFuse,
     DistributionBus,
     GeometryBranch,
+    DistributionReactor,
 )
+from gdm.distribution.equipment import ReactorEquipment
 from gdm.distribution.enums import Phase
 
 import opendssdirect as odd
@@ -121,6 +123,7 @@ def _build_matrix_branch(
     model_class: (type[MatrixImpedanceSwitchEquipment] | type[MatrixImpedanceBranchEquipment]),
     fuse: dict,
     recloser: dict,
+    phase_indices: list[int] | None = None,
 ) -> MatrixImpedanceBranchEquipment:
     """Helper function to build a MatrixImpedanceBranchEquipment instance
 
@@ -146,6 +149,14 @@ def _build_matrix_branch(
     r_matrix = module.RMatrix() if model_type == MatrixBranchTypes.LINE.value else module.Rmatrix()
     x_matrix = module.XMatrix() if model_type == MatrixBranchTypes.LINE.value else module.Xmatrix()
     c_matrix = module.CMatrix() if model_type == MatrixBranchTypes.LINE.value else module.Cmatrix()
+    if phase_indices is not None and len(phase_indices) != num_phase:
+        r_matrix = np.asarray(r_matrix).reshape((num_phase, num_phase))
+        x_matrix = np.asarray(x_matrix).reshape((num_phase, num_phase))
+        c_matrix = np.asarray(c_matrix).reshape((num_phase, num_phase))
+        r_matrix = r_matrix[np.ix_(phase_indices, phase_indices)].flatten().tolist()
+        x_matrix = x_matrix[np.ix_(phase_indices, phase_indices)].flatten().tolist()
+        c_matrix = c_matrix[np.ix_(phase_indices, phase_indices)].flatten().tolist()
+        num_phase = len(phase_indices)
     amps = module.NormAmps() if module.NormAmps() else 0.001
     matrix_branch_dict = {
         "name": equipment_uuid,
@@ -247,6 +258,29 @@ def _add_neutral_phase_to_buses(system, bus1, bus2):
             bus_obj.phases.append(Phase.N)
 
 
+def _line_length_units() -> str:
+    """Return the effective units for the active OpenDSS line.
+
+    OpenDSS allows a line to omit ``Units`` and inherit the line-code units.
+    Treating the omitted value as meters silently changed IEEE123-style
+    lengths from kilometres to metres during a round trip.
+    """
+
+    units = get_unit_index(odd.Lines.Units())
+    if units == 0:
+        # OpenDSS feeder files commonly omit Units on 0.001-length
+        # switch/breaker stubs.  Keep those placeholders in metres; applying
+        # the line-code units (often kilometres) makes their impedance 1000x
+        # too large during a round trip.
+        if abs(float(odd.Lines.Length()) - 0.001) < 1e-12:
+            return UNIT_MAPPER[0]
+        line_code = odd.Lines.LineCode()
+        if line_code:
+            odd.LineCodes.Name(line_code)
+            units = get_unit_index(odd.LineCodes.Units())
+    return UNIT_MAPPER[units]
+
+
 def get_branches(
     system: System,
     mapping: dict[str, str],
@@ -327,6 +361,9 @@ def get_branches(
                 equipment_class,
                 fuse,
                 recloser,
+                phase_indices=[int(node) - 1 for node in nodes]
+                if len(nodes) != num_phase
+                else None,
             )
             equipment = get_equipment_from_catalog(
                 equipment, matrix_branch_equipments_catalog, equipment_class.__name__
@@ -337,7 +374,7 @@ def get_branches(
                     system.get_component(DistributionBus, bus1),
                     system.get_component(DistributionBus, bus2),
                 ],
-                "length": Distance(odd.Lines.Length(), UNIT_MAPPER[odd.Lines.Units()]),
+                "length": Distance(odd.Lines.Length(), _line_length_units()),
                 "phases": [PHASE_MAPPER[node] for node in nodes],
                 "equipment": equipment,
             }
@@ -351,6 +388,65 @@ def get_branches(
         flag = odd.Lines.Next()
 
     return branches
+
+
+def get_reactors(system: System) -> list[DistributionReactor]:
+    """Read OpenDSS series reactors as DistributionReactor components.
+
+    OpenDSS feeders commonly use a reactor between the source bus and the
+    substation bus to model source impedance.  Dropping that element leaves
+    the round-tripped feeder electrically disconnected from its source.  The
+    reactor impedance is stored directly in ReactorEquipment; its
+    bookkeeping branch length is one kilometre so it participates in the GDM
+    network graph without changing the electrical impedance.
+    """
+
+    reactors: list[DistributionReactor] = []
+    for element in odd.Circuit.AllElementNames():
+        if not str(element).lower().startswith("reactor."):
+            continue
+        odd.Circuit.SetActiveElement(element)
+        buses = odd.CktElement.BusNames()
+        if len(buses) < 2:
+            continue
+
+        def query(property_name: str, default: float = 0.0) -> float:
+            odd.Text.Command(f"? {element}.{property_name}")
+            try:
+                return float(odd.Text.Result())
+            except (TypeError, ValueError):
+                return default
+
+        phases = int(query("phases", odd.CktElement.NumPhases()))
+        phase_tokens = buses[0].split(".")[1:]
+        if phases == 3 or len(phase_tokens) < 2:
+            model_phases = [Phase.A, Phase.B, Phase.C]
+        else:
+            model_phases = [PHASE_MAPPER[token] for token in phase_tokens if token in PHASE_MAPPER]
+
+        if len(model_phases) < 2:
+            continue
+
+        resistance = query("r")
+        reactance = query("x")
+        equipment = ReactorEquipment.model_construct(
+            name=str(element).lower(),
+            resistance=Resistance(resistance, "ohm"),
+            reactance=Reactance(reactance, "ohm"),
+        )
+        reactors.append(
+            DistributionReactor.model_construct(
+                name=str(element).lower(),
+                buses=[
+                    system.get_component(DistributionBus, buses[0].split(".")[0]),
+                    system.get_component(DistributionBus, buses[1].split(".")[0]),
+                ],
+                length=Distance(1.0, "kilometer"),
+                phases=model_phases,
+                equipment=equipment,
+            )
+        )
+    return reactors
 
 
 def get_tcc_curves() -> dict[str, TimeCurrentCurve]:
