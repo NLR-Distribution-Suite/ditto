@@ -27,3 +27,18 @@ class OpenDSSTransformerProperties(SupplementalAttribute):
     """Source OpenDSS transformer properties not present in GDM equipment."""
 
     magnetizing_current_pct: float | None = None
+
+
+class OpenDSSSwitchProperties(SupplementalAttribute):
+    """Original direct-sequence properties for nonstandard switches."""
+
+    bus1: str
+    bus2: str
+    r1: float
+    x1: float
+    c1: float
+    r0: float
+    x0: float
+    c0: float
+    length: float
+    units: int

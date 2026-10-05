@@ -42,6 +42,11 @@ class Writer(AbstractWriter):
         return re.sub(r"\bLengthUnit\.([A-Za-z_][A-Za-z0-9_]*)\b", r"\1", dss_string)
 
     def _get_dss_string(self, model_map: Any) -> str:
+        custom_dss_string = getattr(model_map, "custom_dss_string", None)
+        if custom_dss_string is not None:
+            dss_string = custom_dss_string()
+            if dss_string is not None:
+                return dss_string
         if model_map.altdss_name == "Reactor":
             return self._normalize_dss_string(
                 altdss_models.Reactor.dict_dumps_dss(model_map.opendss_dict)

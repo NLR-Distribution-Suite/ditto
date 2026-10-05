@@ -45,6 +45,7 @@ from ditto.readers.opendss.common import (
     get_unit_index,
     hash_model,
 )
+from ditto.opendss_metadata import OpenDSSSwitchProperties
 
 
 class MatrixBranchTypes(str, Enum):
@@ -287,6 +288,7 @@ def get_branches(
     geometry_branch_equipment_catalog: dict,
     matrix_branch_equipments_catalog: dict,
     thermal_limit_catalog: dict,
+    switch_properties: dict[str, OpenDSSSwitchProperties] | None = None,
 ) -> tuple[list[MatrixImpedanceBranch | GeometryBranch]]:
     """Method to build a model branches
 
@@ -311,7 +313,26 @@ def get_branches(
 
         buses = odd.CktElement.BusNames()
         bus1, bus2 = buses[0].split(".")[0], buses[1].split(".")[0]
+        branch_name = odd.Lines.Name().lower()
         num_phase = odd.CktElement.NumPhases()
+        terminal_suffixes = [bus.split(".")[1:] for bus in buses]
+        if (
+            switch_properties is not None
+            and odd.Lines.IsSwitch()
+            and any(suffixes and len(suffixes) != num_phase for suffixes in terminal_suffixes)
+        ):
+            switch_properties[branch_name] = OpenDSSSwitchProperties(
+                bus1=str(buses[0]),
+                bus2=str(buses[1]),
+                r1=float(odd.Lines.R1()),
+                x1=float(odd.Lines.X1()),
+                c1=float(odd.Lines.C1()),
+                r0=float(odd.Lines.R0()),
+                x0=float(odd.Lines.X0()),
+                c0=float(odd.Lines.C0()),
+                length=float(odd.Lines.Length()),
+                units=get_unit_index(odd.Lines.Units()),
+            )
         nodes = ["1", "2", "3"] if num_phase == 3 else buses[0].split(".")[1:]
         geometry = odd.Lines.Geometry().lower()
         if geometry:
@@ -327,7 +348,7 @@ def get_branches(
                 _add_neutral_phase_to_buses(system, bus1, bus2)
 
             geometry_branch = GeometryBranch.model_construct(
-                name=odd.Lines.Name().lower(),
+                name=branch_name,
                 equipment=geometry_branch_equipment,
                 buses=[
                     system.get_component(DistributionBus, bus1),
@@ -340,12 +361,12 @@ def get_branches(
         else:
             fuse = {}
             recloser = {}
-            if odd.Lines.Name().lower() in fuses:
-                fuse = fuses[odd.Lines.Name().lower()]
+            if branch_name in fuses:
+                fuse = fuses[branch_name]
                 equipment_class = MatrixImpedanceFuseEquipment
                 model_class = MatrixImpedanceFuse
-            elif odd.Lines.Name().lower() in reclosers:
-                recloser = reclosers[odd.Lines.Name().lower()]
+            elif branch_name in reclosers:
+                recloser = reclosers[branch_name]
                 equipment_class = MatrixImpedanceFuseEquipment
                 model_class = MatrixImpedanceFuse
             elif odd.Lines.IsSwitch():
@@ -369,7 +390,7 @@ def get_branches(
                 equipment, matrix_branch_equipments_catalog, equipment_class.__name__
             )
             model_dict = {
-                "name": odd.Lines.Name().lower(),
+                "name": branch_name,
                 "buses": [
                     system.get_component(DistributionBus, bus1),
                     system.get_component(DistributionBus, bus2),

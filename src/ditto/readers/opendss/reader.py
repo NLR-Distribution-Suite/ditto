@@ -27,7 +27,7 @@ from ditto.readers.opendss.components.branches import (
     get_branches,
     get_reactors,
 )
-from ditto.opendss_metadata import OpenDSSTransformerProperties
+from ditto.opendss_metadata import OpenDSSSwitchProperties, OpenDSSTransformerProperties
 
 from ditto.readers.reader import AbstractReader
 
@@ -52,6 +52,7 @@ class Reader(AbstractReader):
         self.validation_errors: list[list[str]] = []
         self._load_properties = {}
         self._transformer_properties = {}
+        self._switch_properties: dict[str, OpenDSSSwitchProperties] = {}
         self.Opendss_master_file = Path(Opendss_master_file)
         self.crs = crs
         self._read(use_split_phase_representation)
@@ -82,7 +83,7 @@ class Reader(AbstractReader):
 
             self.system.add_components(*components)
 
-    def _read(self, use_split_phase_representation: bool = True):
+    def _read(self, use_split_phase_representation: bool = True):  # noqa: C901
         """Takes the master file path and returns instance of OpendssParser
 
         Raises:
@@ -150,8 +151,13 @@ class Reader(AbstractReader):
             geometry_branch_equipment_catalog,
             matrix_branch_equipments_catalog,
             thermal_limit_catalog,
+            self._switch_properties,
         )
         self._add_components(branches)
+        for branch in branches:
+            properties = self._switch_properties.get(branch.name)
+            if properties is not None:
+                self.system.add_supplemental_attribute(branch, properties)
         self._add_components(get_reactors(self.system))
 
         logger.debug("parsing complete...")
