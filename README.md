@@ -11,6 +11,8 @@
 
 DiTTo is an open-source tool developed by NREL's Distribution Suites team for converting and modifying electrical distribution system models. It enables seamless conversion between different distribution network formats, with the primary domain being substations to customers.
 
+> **DiTTo is a best-in-class distribution-system model conversion tool, with round-trip validation designed to deliver near-lossless conversion of topology, equipment, and operating behavior.**
+
 ## How it Works
 Flexible representations for power system components are defined in [Grid-Data-Models (GDM)](https://github.com/NLR-Distribution-Suite/grid-data-models) format. 
 DiTTo implements a _many-to-one-to-many_ parsing framework, making it modular and robust. The [reader modules](https://github.com/NLR-Distribution-Suite/ditto/tree/main/src/ditto/readers) parse data files of distribution system format (e.g. OpenDSS) and create an object for each electrical component. These objects are stored in a [GDM DistributionSystem](https://github.com/NLR-Distribution-Suite/grid-data-models/blob/main/src/gdm/distribution/distribution_system.py) instance. The [writer modules](https://github.com/NLR-Distribution-Suite/ditto/tree/main/src/ditto/writers) are then used to export the data stored in memory to a selected output distribution system format (e.g. OpenDSS) which are written to disk.
@@ -20,6 +22,29 @@ DiTTo implements a _many-to-one-to-many_ parsing framework, making it modular an
 - **GDM Integration**: Built on [Grid-Data-Models (GDM)](https://github.com/NLR-Distribution-Suite/grid-data-models) for flexible power system component representation
 - **Validation**: Thorough model validation during conversion
 - **Serialization**: Full JSON serialization/deserialization support for converted models
+
+## OpenDSS Round-Trip Validation
+
+DiTTo uses round-trip comparisons to verify that a model converted through GDM
+and written back to OpenDSS preserves electrical behavior. The latest corrected
+comparison uses the same deterministic solve policy on both sides: regulator
+and capacitor controls disabled, transformer taps fixed at 1.0 pu, and
+capacitor banks on.
+
+| Circuit | Source P (pre → post) | Source Q (pre → post) | Total loss kW (pre → post) | Line loss kW (pre → post) | Transformer loss kW (pre → post) | Dashboard Vmin (pre → post) |
+|---|---:|---:|---:|---:|---:|---:|
+| 123Bus | 3,482.7 → 3,480.9 (-0.050%) | 1,358.1 → 1,357.0 (-0.081%) | 96.73 → 96.62 | 96.73 → 96.61 | 0.0003 → 0.0003 | 0.926538 → 0.926634 |
+| 13Bus | 3,400.7 → 3,398.9 (-0.054%) | 1,707.7 → 1,706.4 (-0.077%) | 112.57 → 112.41 | 106.47 → 106.31 | 6.10 → 6.10 | 0.905202 → 0.905286 |
+| CKT7 | 76,311.2 → 76,311.2 (~0.000%) | 24,148.6 → 24,148.0 (-0.002%) | 239.07 → 238.22 | 172.17 → 171.30 | 66.91 → 66.92 | 0.813033 → 0.813158 |
+| CKT24 | 50,727.1 → 50,758.4 (+0.062%) | 11,498.1 → 11,410.4 (-0.763%) | 1,002.51 → 1,003.83 | 473.19 → 473.97 | 529.32 → 529.87 | 0.863240 → 0.863664 |
+| P4U | 2,254.5 → 2,254.6 (+0.004%) | 689.2 → 689.6 (+0.063%) | 172.83 → 172.93 | 21.93 → 21.94 | 150.90 → 150.99 | 0.944773 → 0.944734 |
+| SFO | 5,056.4 → 5,056.3 (-0.002%) | 828.3 → 833.2 (+0.589%) | 163.99 → 163.90 | 71.82 → 70.12 | 92.16 → 93.78 | 0.959260 → 0.959116 |
+| 8500-Node | 11,232.4 → 11,248.2 (+0.141%) | 1,869.1 → 1,839.3 (-1.598%) | 1,211.72 → 1,219.91 | 1,043.64 → 1,040.20 | 168.08 → 179.71 | 0.785291 → 0.785770 |
+
+The voltage minimums use phase terminals that are actually connected in the
+OpenDSS topology. This avoids treating malformed, unserved switch conductors
+as energized buses. The complete machine-readable comparison is generated in
+`corrected_roundtrip_comparison.csv` by the round-trip validation workflow.
 
 ## How It Works
 
