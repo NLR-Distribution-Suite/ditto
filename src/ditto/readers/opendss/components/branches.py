@@ -440,12 +440,12 @@ def get_reactors(system: System) -> list[DistributionReactor]:
 
         phases = int(query("phases", odd.CktElement.NumPhases()))
         phase_tokens = buses[0].split(".")[1:]
-        if phases == 3 or len(phase_tokens) < 2:
-            model_phases = [Phase.A, Phase.B, Phase.C]
-        else:
+        if phase_tokens:
             model_phases = [PHASE_MAPPER[token] for token in phase_tokens if token in PHASE_MAPPER]
+        else:
+            model_phases = [Phase.A, Phase.B, Phase.C][:phases]
 
-        if len(model_phases) < 2:
+        if not model_phases:
             continue
 
         resistance = query("r")

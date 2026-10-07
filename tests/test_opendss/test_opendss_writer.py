@@ -13,6 +13,7 @@ from gdm.distribution.components import (
     DistributionBus,
     GeometryBranch,
 )
+from gdm.systems.substation.components import PowerTransformer
 import pytest
 
 from ditto.writers.opendss.write import Writer
@@ -56,6 +57,16 @@ def test_all_types(tmp_path):
     # Verify output files were produced
     dss_files = list(Path(tmp_path).rglob("*.dss"))
     assert len(dss_files) > 0, "No .dss files produced for full system write"
+
+
+def test_power_transformer_component(tmp_path):
+    system = DistributionSystem(name="test station transformer", auto_add_composed_components=True)
+    system.add_component(PowerTransformer.example())
+
+    Writer(system).write(output_path=tmp_path, separate_substations=False, separate_feeders=False)
+
+    dss_text = "\n".join(path.read_text() for path in Path(tmp_path).rglob("*.dss"))
+    assert "main-transformer-001" in dss_text.lower()
 
 
 def test_normalize_length_unit_enum_tokens():

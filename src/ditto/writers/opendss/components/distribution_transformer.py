@@ -71,3 +71,31 @@ class DistributionTransformerMapper(OpenDSSMapper):
     def map_equipment(self):
         equipment = self.model.equipment
         self.opendss_dict["XfmrCode"] = self.get_opendss_safe_name(equipment.name)
+
+
+class PowerTransformerMapper(DistributionTransformerMapper):
+    """Map station power transformers using the shared transformer fields."""
+
+    def map_asset_reference(self):
+        pass
+
+    def map_bay(self):
+        pass
+
+    def map_voltage_level(self):
+        pass
+
+    def map_phases(self):
+        pass
+
+    def map_lifecycle_status(self):
+        pass
+
+    def map_ratings(self):
+        pass
+
+    def map_lifecycle_records(self):
+        pass
+
+    def map_state_observations(self):
+        pass

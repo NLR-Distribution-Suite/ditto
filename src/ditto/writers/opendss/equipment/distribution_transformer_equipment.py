@@ -118,3 +118,16 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
 
     def map_mounting(self):
         pass
+
+
+class PowerTransformerEquipmentMapper(DistributionTransformerEquipmentMapper):
+    """Map station transformer equipment using the shared nameplate fields."""
+
+    def map_vector_group(self):
+        pass
+
+    def map_cooling_class(self):
+        pass
+
+    def map_fluid_type(self):
+        pass
