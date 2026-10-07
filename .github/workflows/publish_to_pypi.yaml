@@ -23,6 +23,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build
           pip install hatch
+      - name: Set package version from release tag
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            v*) release_version="${GITHUB_REF_NAME#v}" ;;
+            *) echo "Expected a v-prefixed release tag, got ${GITHUB_REF_NAME}" >&2; exit 1 ;;
+          esac
+          hatch version "$release_version"
+          test "$(hatch version)" = "$release_version"
       - name: Build and publish
         run: |
           python -m build
