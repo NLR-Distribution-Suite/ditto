@@ -16,6 +16,7 @@ from loguru import logger
 
 from ditto.readers.opendss.components.loadshapes import build_profiles, ObjectsWithProfile
 from ditto.readers.opendss.common import PHASE_MAPPER, LoadTypes
+from ditto.opendss_metadata import OpenDSSLoadProperties
 
 
 def _build_load_equipment() -> tuple[LoadEquipment, list[str], str, list[str]]:
@@ -82,7 +83,10 @@ def _build_load_equipment() -> tuple[LoadEquipment, list[str], str, list[str]]:
 #     """
 
 
-def get_loads(system: System) -> list[DistributionLoad]:
+def get_loads(
+    system: System,
+    load_properties: dict[str, OpenDSSLoadProperties] | None = None,
+) -> list[DistributionLoad]:
     """Function to return list of DistributionLoad in Opendss model.
 
     Args:
@@ -109,6 +113,15 @@ def get_loads(system: System) -> list[DistributionLoad]:
             phases=[PHASE_MAPPER[el] for el in nodes],
             equipment=load_equipment,
         )
+        if load_properties is not None:
+            load_properties[load_name] = OpenDSSLoadProperties(
+                model=odd.Loads.Model(),
+                vminpu=odd.Loads.Vminpu(),
+                vmaxpu=odd.Loads.Vmaxpu(),
+                cvrwatts=odd.Loads.CVRwatts(),
+                cvrvars=odd.Loads.CVRvars(),
+                zipv=list(odd.Loads.ZipV()),
+            )
         for profile_name in profile_names:
             if profile_name in profiles:
                 for profile_type, ts_profile in profiles[profile_name].items():

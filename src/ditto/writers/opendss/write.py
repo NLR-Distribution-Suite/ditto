@@ -12,6 +12,7 @@ from gdm.distribution.components import (
     DistributionComponentBase,
     DistributionTransformer,
     DistributionBranchBase,
+    DistributionReactor,
     MatrixImpedanceSwitch,
     DistributionBus,
 )
@@ -41,6 +42,15 @@ class Writer(AbstractWriter):
         return re.sub(r"\bLengthUnit\.([A-Za-z_][A-Za-z0-9_]*)\b", r"\1", dss_string)
 
     def _get_dss_string(self, model_map: Any) -> str:
+        custom_dss_string = getattr(model_map, "custom_dss_string", None)
+        if custom_dss_string is not None:
+            dss_string = custom_dss_string()
+            if dss_string is not None:
+                return dss_string
+        if model_map.altdss_name == "Reactor":
+            return self._normalize_dss_string(
+                altdss_models.Reactor.dict_dumps_dss(model_map.opendss_dict)
+            )
         # Example model_map is instance of DistributionBusMapper
         altdss_class = getattr(altdss_models, model_map.altdss_name)
         # Example altdss_class is Bus
@@ -83,6 +93,18 @@ class Writer(AbstractWriter):
 
     def _should_expand_two_phase_transformer(self, model_map: Any) -> bool:
         if model_map.altdss_composition_name != "Transformer":
+            return False
+
+        # Center-tapped transformers are represented as three windings in
+        # OpenDSS: one primary plus two secondary legs.  Their primary bus can
+        # legitimately have two phases (for example A-C), but that does not
+        # mean the transformer is a two-winding/two-phase unit that should be
+        # split into one transformer per phase.  Expanding these objects loses
+        # the .1.0/.0.2 split-phase connections and incorrectly converts the
+        # secondary voltage by sqrt(3).
+        model = getattr(model_map, "model", None)
+        equipment = getattr(model, "equipment", None)
+        if getattr(equipment, "is_center_tapped", False):
             return False
 
         buses = model_map.opendss_dict.get("Bus", [])
@@ -478,7 +500,7 @@ class Writer(AbstractWriter):
             if not switch.is_closed[0]:
                 file_handler.write(f"open line.{switch.name}\n")
 
-    def _write_base_master(self, base_redirect, output_folder):
+    def _write_base_master(self, base_redirect, output_folder):  # noqa: C901
         # Only use Masters that have a voltage source, and hence already written.
         sources = list(self.system.get_components(DistributionVoltageSource))
         has_source = True if sources else False
@@ -494,11 +516,21 @@ class Writer(AbstractWriter):
                     bus.name, DistributionBranchBase
                 )
                 if equipment:
-                    equipment_type = "Line"
+                    equipment_type = (
+                        "Reactor" if isinstance(equipment[0], DistributionReactor) else "Line"
+                    )
                     equipment_name = equipment[0].name
                 else:
                     equipment_type = None
                     equipment_name = None
+
+            if equipment_name is not None:
+                # The same normalization used by component mappers must also
+                # be applied to the EnergyMeter reference.  Reactor-derived
+                # sequence branches commonly contain a dot in their source
+                # element name (for example ``reactor.hvmv_sub_hsb``), while
+                # the emitted DSS line is named ``reactor_hvmv_sub_hsb``.
+                equipment_name = re.sub(r"[ .!=\[\]{}@%~]", "_", equipment_name)
 
         file_order = [file_type.value for file_type in OpenDSSFileTypes]
         master_file = output_folder / OpenDSSFileTypes.MASTER_FILE.value

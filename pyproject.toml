@@ -22,7 +22,7 @@ classifiers = [
 ]
 dependencies = [
   "opendssdirect.py",
-  "grid-data-models==2.3.8",
+  "grid-data-models==2.4.0",
   "rdflib",
   "NREL-altdss-schema==0.0.3",
   "typer",
@@ -129,4 +129,3 @@ include = ["src/ditto", "docs"]
 [project.scripts]
 ditto_cli = "ditto.cli:app"
 ditto_mcp = "ditto.mcp.server:main"
-

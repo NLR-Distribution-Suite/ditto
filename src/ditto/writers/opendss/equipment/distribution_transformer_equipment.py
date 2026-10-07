@@ -5,6 +5,7 @@ from infrasys import Component
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
 from ditto.constants import LL_LN_CONVERSION_FACTOR
+from ditto.opendss_metadata import OpenDSSTransformerProperties
 
 
 class DistributionTransformerEquipmentMapper(OpenDSSMapper):
@@ -20,9 +21,17 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
 
     def map_pct_no_load_loss(self):
         self.opendss_dict["pctNoLoadLoss"] = self.model.pct_no_load_loss
+        self.map_magnetizing_current()
 
     def map_pct_full_load_loss(self):
         self.opendss_dict["pctLoadLoss"] = self.model.pct_full_load_loss
+
+    def map_magnetizing_current(self):
+        properties = self.system.get_supplemental_attributes_with_component(
+            self.model, OpenDSSTransformerProperties
+        )
+        if properties and properties[0].magnetizing_current_pct is not None:
+            self.opendss_dict["pctIMag"] = properties[0].magnetizing_current_pct
 
     def map_windings(self):
         kvs = []
@@ -108,4 +117,17 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
         pass  # Used on buses
 
     def map_mounting(self):
+        pass
+
+
+class PowerTransformerEquipmentMapper(DistributionTransformerEquipmentMapper):
+    """Map station transformer equipment using the shared nameplate fields."""
+
+    def map_vector_group(self):
+        pass
+
+    def map_cooling_class(self):
+        pass
+
+    def map_fluid_type(self):
         pass

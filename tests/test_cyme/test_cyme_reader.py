@@ -10,8 +10,8 @@ from loguru import logger
 logger.add(sys.stderr, level="WARNING")
 
 base_path = Path(__file__).parent.parent
-cyme_circuit_models = base_path / "data" / "cyme_test_cases"
-assert cyme_circuit_models.exists, f"{cyme_circuit_models} does not exist"
+cyme_circuit_models = base_path / "data" / "cyme_models"
+assert cyme_circuit_models.exists(), f"{cyme_circuit_models} does not exist"
 
 # Require all models to be called Model.mdb and Equipment.mdb for testing
 

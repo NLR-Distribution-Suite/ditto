@@ -7,6 +7,7 @@ from infrasys import Component
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
 from ditto.constants import LL_LN_CONVERSION_FACTOR
+from ditto.opendss_metadata import OpenDSSLoadProperties
 
 
 class DistributionLoadMapper(OpenDSSMapper):
@@ -71,12 +72,12 @@ class DistributionLoadMapper(OpenDSSMapper):
             self.opendss_dict["Phases"] = len(self.model.phases)
         # TODO: Do we need to remove neutrals?
 
-    def map_equipment(self):
+    def map_equipment(self):  # noqa: C901
         # TODO: We're not building equipment for the Loads. This means that there's no guarantee that we're addressing all of the attributes in the equipment in a structured way like we are for the component.
         equipment = self.model.equipment
         connection = self.connection_map[equipment.connection_type]
         self.opendss_dict["Conn"] = connection
-        self.opendss_dict["Model"] = 8  # Using ZIP model
+        self.opendss_dict["Model"] = 8  # Canonical fallback when no source metadata exists.
 
         # Solve for the co-efficients of Z, I and P terms summed accross all phases A, B and C:
         # P*a_p = P_{0A} * a_{Ap} + P_{0B} * a_{Bp} + P_{0C} * a_{Cp} = z_real
@@ -138,3 +139,23 @@ class DistributionLoadMapper(OpenDSSMapper):
         self.opendss_dict["kvar"] = q_total.magnitude
         # Cut-off voltage set to 0
         self.opendss_dict["ZIPV"] = [a_p, b_p, c_p, a_q, b_q, c_q, 0]
+
+        source_properties = self.system.get_supplemental_attributes_with_component(
+            self.model, OpenDSSLoadProperties
+        )
+        if source_properties:
+            source = source_properties[0]
+            if source.model is not None:
+                self.opendss_dict["Model"] = source.model
+            if source.vminpu is not None:
+                self.opendss_dict["VMinpu"] = source.vminpu
+            if source.vmaxpu is not None:
+                self.opendss_dict["VMaxpu"] = source.vmaxpu
+            if source.cvrwatts is not None:
+                self.opendss_dict["CVRWatts"] = source.cvrwatts
+            if source.cvrvars is not None:
+                self.opendss_dict["CVRVars"] = source.cvrvars
+            if source.model == 8 and source.zipv:
+                self.opendss_dict["ZIPV"] = source.zipv
+            elif source.model != 8:
+                self.opendss_dict.pop("ZIPV", None)
