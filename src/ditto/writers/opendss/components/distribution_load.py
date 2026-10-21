@@ -7,7 +7,6 @@ from infrasys import Component
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
 from ditto.constants import LL_LN_CONVERSION_FACTOR
-from ditto.opendss_metadata import OpenDSSLoadProperties
 
 
 class DistributionLoadMapper(OpenDSSMapper):
@@ -77,7 +76,7 @@ class DistributionLoadMapper(OpenDSSMapper):
         equipment = self.model.equipment
         connection = self.connection_map[equipment.connection_type]
         self.opendss_dict["Conn"] = connection
-        self.opendss_dict["Model"] = 8  # Canonical fallback when no source metadata exists.
+        self.opendss_dict["Model"] = 8
 
         # Solve for the co-efficients of Z, I and P terms summed accross all phases A, B and C:
         # P*a_p = P_{0A} * a_{Ap} + P_{0B} * a_{Bp} + P_{0C} * a_{Cp} = z_real
@@ -137,25 +136,45 @@ class DistributionLoadMapper(OpenDSSMapper):
 
         self.opendss_dict["kW"] = p_total.magnitude
         self.opendss_dict["kvar"] = q_total.magnitude
-        # Cut-off voltage set to 0
         self.opendss_dict["ZIPV"] = [a_p, b_p, c_p, a_q, b_q, c_q, 0]
+        self._map_voltage_behavior()
 
-        source_properties = self.system.get_supplemental_attributes_with_component(
-            self.model, OpenDSSLoadProperties
-        )
-        if source_properties:
-            source = source_properties[0]
-            if source.model is not None:
-                self.opendss_dict["Model"] = source.model
-            if source.vminpu is not None:
-                self.opendss_dict["VMinpu"] = source.vminpu
-            if source.vmaxpu is not None:
-                self.opendss_dict["VMaxpu"] = source.vmaxpu
-            if source.cvrwatts is not None:
-                self.opendss_dict["CVRWatts"] = source.cvrwatts
-            if source.cvrvars is not None:
-                self.opendss_dict["CVRVars"] = source.cvrvars
-            if source.model == 8 and source.zipv:
-                self.opendss_dict["ZIPV"] = source.zipv
-            elif source.model != 8:
-                self.opendss_dict.pop("ZIPV", None)
+    def _map_voltage_behavior(self):
+        phase_loads = self.model.equipment.phase_loads
+        behavior = {}
+        for field in (
+            "min_voltage_pu",
+            "max_voltage_pu",
+            "cutoff_voltage_pu",
+            "active_power_voltage_exponent",
+            "reactive_power_voltage_exponent",
+        ):
+            values = {getattr(phase, field) for phase in phase_loads}
+            if len(values) != 1:
+                raise ValueError(
+                    f"Load {self.model.name!r} has different {field} by phase; "
+                    "it cannot be exported as one OpenDSS load."
+                )
+            behavior[field] = values.pop()
+        for field, dss_field in (("min_voltage_pu", "VMinpu"), ("max_voltage_pu", "VMaxpu")):
+            if behavior[field] is not None:
+                self.opendss_dict[dss_field] = behavior[field]
+        if behavior["active_power_voltage_exponent"] is not None:
+            self.opendss_dict["Model"] = 4
+            self.opendss_dict["CVRWatts"] = behavior["active_power_voltage_exponent"]
+            self.opendss_dict["CVRVars"] = behavior["reactive_power_voltage_exponent"]
+            self.opendss_dict.pop("ZIPV", None)
+            return
+        self.opendss_dict["ZIPV"][6] = behavior["cutoff_voltage_pu"]
+        if behavior["cutoff_voltage_pu"]:
+            return
+        coefficients = tuple(self.opendss_dict["ZIPV"][:6])
+        model = {
+            (0, 0, 1, 0, 0, 1): 1,
+            (1, 0, 0, 1, 0, 0): 2,
+            (0, 0, 1, 1, 0, 0): 3,
+            (0, 1, 0, 0, 1, 0): 5,
+        }.get(coefficients)
+        if model is not None:
+            self.opendss_dict["Model"] = model
+            self.opendss_dict.pop("ZIPV")

@@ -21,6 +21,8 @@ from gdm.distribution.equipment import (
     ConcentricCableEquipment,
     GeometryBranchEquipment,
     BareConductorEquipment,
+    SequenceImpedanceSwitchEquipment,
+    MatrixImpedanceBranchEquipmentBase,
 )
 from gdm.distribution.components import (
     MatrixImpedanceSwitch,
@@ -29,6 +31,7 @@ from gdm.distribution.components import (
     DistributionBus,
     GeometryBranch,
     DistributionReactor,
+    SequenceImpedanceSwitch,
 )
 from gdm.distribution.equipment import ReactorEquipment
 from gdm.distribution.enums import Phase
@@ -45,7 +48,6 @@ from ditto.readers.opendss.common import (
     get_unit_index,
     hash_model,
 )
-from ditto.opendss_metadata import OpenDSSSwitchProperties
 
 
 class MatrixBranchTypes(str, Enum):
@@ -125,7 +127,7 @@ def _build_matrix_branch(
     fuse: dict,
     recloser: dict,
     phase_indices: list[int] | None = None,
-) -> MatrixImpedanceBranchEquipment:
+) -> MatrixImpedanceBranchEquipmentBase | SequenceImpedanceSwitchEquipment:
     """Helper function to build a MatrixImpedanceBranchEquipment instance
 
     Args:
@@ -183,11 +185,18 @@ def _build_matrix_branch(
         matrix_branch_dict.update(fuse)
     elif model_class == MatrixImpedanceRecloserEquipment:
         matrix_branch_dict.update(recloser)
-    matrix_branch_equipment = model_class.model_construct(**matrix_branch_dict)
-    matrix_branch_equipment = get_equipment_from_catalog(
-        matrix_branch_equipment, matrix_branch_equipments_catalog, model_class.__name__
+    equipment = model_class.model_construct(**matrix_branch_dict)
+    if (
+        model_class is MatrixImpedanceSwitchEquipment
+        and model_type == MatrixBranchTypes.LINE.value
+    ):
+        sequence_equipment = _sequence_switch_equipment(equipment)
+        if sequence_equipment is not None:
+            equipment = sequence_equipment
+    equipment = get_equipment_from_catalog(
+        equipment, matrix_branch_equipments_catalog, type(equipment).__name__
     )
-    return matrix_branch_equipment
+    return equipment
 
 
 def _build_distribution_switch_controller():
@@ -210,6 +219,7 @@ def get_matrix_branch_equipments() -> (
     matrix_branch_equipments_catalog = {
         MatrixImpedanceRecloserEquipment.__name__: {},
         MatrixImpedanceSwitchEquipment.__name__: {},
+        SequenceImpedanceSwitchEquipment.__name__: {},
         MatrixImpedanceBranchEquipment.__name__: {},
         MatrixImpedanceFuseEquipment.__name__: {},
     }
@@ -282,13 +292,55 @@ def _line_length_units() -> str:
     return UNIT_MAPPER[units]
 
 
-def get_branches(
+def _sequence_switch_equipment(
+    equipment: MatrixImpedanceSwitchEquipment,
+) -> SequenceImpedanceSwitchEquipment | None:
+    """Use sequence quantities only when they reproduce all three phase matrices."""
+    if equipment.r_matrix.magnitude.shape != (3, 3):
+        return None
+    if len(set(odd.CktElement.NodeOrder()[:3])) != 3:
+        return None
+    units = UNIT_MAPPER[get_unit_index(odd.Lines.Units())]
+    candidate = SequenceImpedanceSwitchEquipment(
+        name=equipment.name,
+        pos_seq_resistance=ResistancePULength(odd.Lines.R1(), f"ohm/{units}"),
+        zero_seq_resistance=ResistancePULength(odd.Lines.R0(), f"ohm/{units}"),
+        pos_seq_reactance=ReactancePULength(odd.Lines.X1(), f"ohm/{units}"),
+        zero_seq_reactance=ReactancePULength(odd.Lines.X0(), f"ohm/{units}"),
+        pos_seq_capacitance=CapacitancePULength(odd.Lines.C1(), f"nanofarad/{units}"),
+        zero_seq_capacitance=CapacitancePULength(odd.Lines.C0(), f"nanofarad/{units}"),
+        ampacity=equipment.ampacity,
+        controller=equipment.controller,
+    )
+    equivalent = candidate.to_matrix_equipment()
+    for field in ("r_matrix", "x_matrix", "c_matrix"):
+        original = getattr(equipment, field)
+        converted = getattr(equivalent, field).to(original.units)
+        if not np.allclose(original.magnitude, converted.magnitude, rtol=1e-10, atol=1e-12):
+            return None
+    return candidate
+
+
+def _switch_nodes(num_phase: int) -> list[str]:
+    """Read resolved connections, including DSS's implicit/default terminal nodes."""
+    nodes = odd.CktElement.NodeOrder()
+    num_conductors = odd.CktElement.NumConductors()
+    first = nodes[:num_phase]
+    second = nodes[num_conductors : num_conductors + num_phase]
+    if len(first) != num_phase or first != second or any(node not in (1, 2, 3) for node in first):
+        raise ValueError(
+            f"Switch {odd.Lines.Name()!r} has unsupported terminal connections "
+            f"{first!r} -> {second!r}; GDM requires the same phases at both terminals."
+        )
+    return [str(node) for node in first]
+
+
+def get_branches(  # noqa: C901
     system: System,
     mapping: dict[str, str],
     geometry_branch_equipment_catalog: dict,
     matrix_branch_equipments_catalog: dict,
     thermal_limit_catalog: dict,
-    switch_properties: dict[str, OpenDSSSwitchProperties] | None = None,
 ) -> tuple[list[MatrixImpedanceBranch | GeometryBranch]]:
     """Method to build a model branches
 
@@ -315,25 +367,9 @@ def get_branches(
         bus1, bus2 = buses[0].split(".")[0], buses[1].split(".")[0]
         branch_name = odd.Lines.Name().lower()
         num_phase = odd.CktElement.NumPhases()
-        terminal_suffixes = [bus.split(".")[1:] for bus in buses]
-        if (
-            switch_properties is not None
-            and odd.Lines.IsSwitch()
-            and any(suffixes and len(suffixes) != num_phase for suffixes in terminal_suffixes)
-        ):
-            switch_properties[branch_name] = OpenDSSSwitchProperties(
-                bus1=str(buses[0]),
-                bus2=str(buses[1]),
-                r1=float(odd.Lines.R1()),
-                x1=float(odd.Lines.X1()),
-                c1=float(odd.Lines.C1()),
-                r0=float(odd.Lines.R0()),
-                x0=float(odd.Lines.X0()),
-                c0=float(odd.Lines.C0()),
-                length=float(odd.Lines.Length()),
-                units=get_unit_index(odd.Lines.Units()),
-            )
         nodes = ["1", "2", "3"] if num_phase == 3 else buses[0].split(".")[1:]
+        if odd.Lines.IsSwitch():
+            nodes = _switch_nodes(num_phase)
         geometry = odd.Lines.Geometry().lower()
         if geometry:
             assert geometry in mapping
@@ -386,9 +422,8 @@ def get_branches(
                 if len(nodes) != num_phase
                 else None,
             )
-            equipment = get_equipment_from_catalog(
-                equipment, matrix_branch_equipments_catalog, equipment_class.__name__
-            )
+            if isinstance(equipment, SequenceImpedanceSwitchEquipment):
+                model_class = SequenceImpedanceSwitch
             model_dict = {
                 "name": branch_name,
                 "buses": [
@@ -399,11 +434,18 @@ def get_branches(
                 "phases": [PHASE_MAPPER[node] for node in nodes],
                 "equipment": equipment,
             }
-            if model_class in [MatrixImpedanceSwitch, MatrixImpedanceFuse]:
+            if model_class in [
+                MatrixImpedanceSwitch,
+                SequenceImpedanceSwitch,
+                MatrixImpedanceFuse,
+            ]:
                 model_dict["is_closed"] = [
                     not (odd.CktElement.IsOpen(1, node + 1) or odd.CktElement.IsOpen(2, node + 1))
                     for node in range(len(nodes))
                 ]
+            if model_class is MatrixImpedanceSwitch and len(set(nodes)) != len(nodes):
+                model_dict["conductor_phases"] = model_dict["phases"]
+                model_dict["phases"] = list(dict.fromkeys(model_dict["phases"]))
             matrix_branch = model_class.model_construct(**model_dict)
             branches.append(matrix_branch)
         flag = odd.Lines.Next()

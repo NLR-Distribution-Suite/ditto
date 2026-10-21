@@ -14,6 +14,7 @@ from gdm.distribution.components import (
     DistributionBranchBase,
     DistributionReactor,
     MatrixImpedanceSwitch,
+    SequenceImpedanceSwitch,
     DistributionBus,
 )
 from gdm.distribution.equipment import (
@@ -42,11 +43,6 @@ class Writer(AbstractWriter):
         return re.sub(r"\bLengthUnit\.([A-Za-z_][A-Za-z0-9_]*)\b", r"\1", dss_string)
 
     def _get_dss_string(self, model_map: Any) -> str:
-        custom_dss_string = getattr(model_map, "custom_dss_string", None)
-        if custom_dss_string is not None:
-            dss_string = custom_dss_string()
-            if dss_string is not None:
-                return dss_string
         if model_map.altdss_name == "Reactor":
             return self._normalize_dss_string(
                 altdss_models.Reactor.dict_dumps_dss(model_map.opendss_dict)
@@ -493,12 +489,12 @@ class Writer(AbstractWriter):
         return output_folder, output_redirect
 
     def _write_switch_status(self, file_handler: TextIOWrapper):
-        switches: list[MatrixImpedanceSwitch] = list(
-            self.system.get_components(MatrixImpedanceSwitch)
-        )
+        switches = list(self.system.get_components(MatrixImpedanceSwitch, SequenceImpedanceSwitch))
         for switch in switches:
-            if not switch.is_closed[0]:
-                file_handler.write(f"open line.{switch.name}\n")
+            name = OpenDSSMapper.get_opendss_safe_name(switch.name)
+            for conductor, closed in enumerate(switch.is_closed, start=1):
+                if not closed:
+                    file_handler.write(f"open line.{name} term=1 cond={conductor}\n")
 
     def _write_base_master(self, base_redirect, output_folder):  # noqa: C901
         # Only use Masters that have a voltage source, and hence already written.
@@ -552,6 +548,15 @@ class Writer(AbstractWriter):
                     )
                 base_master.write(f"Set Voltagebases={self._get_voltage_bases()}\n")
                 base_master.write("calcv\n")
+                # DSS's first Y-primitive calculation after Switch=yes overwrites matrices
+                # with its sequence defaults. Reapply generic equipment after initialization.
+                for switch in self.system.get_components(MatrixImpedanceSwitch):
+                    name = OpenDSSMapper.get_opendss_safe_name(switch.name)
+                    code = OpenDSSMapper.get_opendss_safe_name(switch.equipment.name)
+                    length = switch.length.to("km").magnitude
+                    base_master.write(
+                        f"edit Line.{name} LineCode={code} Length={length} Units=km\n"
+                    )
                 base_master.write("Solve\n")
                 base_master.write(f"redirect {OpenDSSFileTypes.COORDINATE_FILE.value}\n")
 

@@ -16,7 +16,6 @@ from loguru import logger
 
 from ditto.readers.opendss.components.loadshapes import build_profiles, ObjectsWithProfile
 from ditto.readers.opendss.common import PHASE_MAPPER, LoadTypes
-from ditto.opendss_metadata import OpenDSSLoadProperties
 
 
 def _build_load_equipment() -> tuple[LoadEquipment, list[str], str, list[str]]:
@@ -61,6 +60,15 @@ def _build_load_equipment() -> tuple[LoadEquipment, list[str], str, list[str]]:
             name=f"{equipment_uuid}_{el}",
             real_power=ActivePower(kw_per_phase, "kilowatt"),
             reactive_power=ReactivePower(kvar_per_phase, "kilovar"),
+            min_voltage_pu=odd.Loads.Vminpu(),
+            max_voltage_pu=odd.Loads.Vmaxpu(),
+            cutoff_voltage_pu=zip_params[6] if model == LoadTypes.ZIP else 0.0,
+            active_power_voltage_exponent=(
+                odd.Loads.CVRwatts() if model == LoadTypes.LINEAR_P__QUARDRATIC_Q else None
+            ),
+            reactive_power_voltage_exponent=(
+                odd.Loads.CVRvars() if model == LoadTypes.LINEAR_P__QUARDRATIC_Q else None
+            ),
             **zip_params_dict,
         )
         ph_loads.append(load)
@@ -83,10 +91,7 @@ def _build_load_equipment() -> tuple[LoadEquipment, list[str], str, list[str]]:
 #     """
 
 
-def get_loads(
-    system: System,
-    load_properties: dict[str, OpenDSSLoadProperties] | None = None,
-) -> list[DistributionLoad]:
+def get_loads(system: System) -> list[DistributionLoad]:
     """Function to return list of DistributionLoad in Opendss model.
 
     Args:
@@ -113,15 +118,6 @@ def get_loads(
             phases=[PHASE_MAPPER[el] for el in nodes],
             equipment=load_equipment,
         )
-        if load_properties is not None:
-            load_properties[load_name] = OpenDSSLoadProperties(
-                model=odd.Loads.Model(),
-                vminpu=odd.Loads.Vminpu(),
-                vmaxpu=odd.Loads.Vmaxpu(),
-                cvrwatts=odd.Loads.CVRwatts(),
-                cvrvars=odd.Loads.CVRvars(),
-                zipv=list(odd.Loads.ZipV()),
-            )
         for profile_name in profile_names:
             if profile_name in profiles:
                 for profile_type, ts_profile in profiles[profile_name].items():

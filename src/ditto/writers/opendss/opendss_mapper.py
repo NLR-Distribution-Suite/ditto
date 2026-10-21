@@ -14,6 +14,7 @@ class OpenDSSMapper(ABC):
         "feet": "ft",
         "foot": "ft",
         "kilometer": "km",
+        "kilofoot": "kft",
         "inch": "in",
         "centimeter": "cm",
         "millimeter": "mm",
@@ -91,7 +92,8 @@ class OpenDSSMapper(ABC):
 
             return profile_name
 
-    def get_opendss_safe_name(self, name: str) -> str:
+    @staticmethod
+    def get_opendss_safe_name(name: str) -> str:
         """Fix the name to be compatible with OpenDSS by replacing spaces and periods with underscores."""
 
         not_safe_characters = [" ", ".", "=", "!", "[", "]", "{", "}", "@", "%", "~"]

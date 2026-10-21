@@ -80,4 +80,60 @@ def test_single_phase_reactor_is_read(monkeypatch):
     assert reactors[0].phases == [Phase.A]
 
 
+def test_switch_rejects_different_terminal_phases(monkeypatch):
+    from gdm.distribution.equipment import MatrixImpedanceSwitchEquipment
+
+    system = DistributionSystem(auto_add_composed_components=True)
+    buses = [
+        DistributionBus.example().model_copy(update={"name": name, "uuid": uuid4()})
+        for name in ("source", "load")
+    ]
+    system.add_components(*buses)
+
+    monkeypatch.setattr(
+        branches,
+        "odd",
+        SimpleNamespace(
+            Lines=SimpleNamespace(
+                First=lambda: 1,
+                Name=lambda: "malformed_switch",
+                IsSwitch=lambda: True,
+                Length=lambda: 1.0,
+                Units=lambda: 3,
+                Geometry=lambda: "",
+                R1=lambda: 0.1,
+                X1=lambda: 0.2,
+                C1=lambda: 0.3,
+                R0=lambda: 0.4,
+                X0=lambda: 0.5,
+                C0=lambda: 0.6,
+                Next=lambda: 0,
+            ),
+            CktElement=SimpleNamespace(
+                Name=lambda: "Line.malformed_switch",
+                BusNames=lambda: ["source.1.2.3", "load.1.2"],
+                NumPhases=lambda: 3,
+                NumConductors=lambda: 3,
+                NodeOrder=lambda: [1, 2, 3, 1, 2, 0],
+                IsOpen=lambda _terminal, _phase: False,
+            ),
+        ),
+    )
+    monkeypatch.setattr(branches, "get_reclosers", lambda: {})
+    monkeypatch.setattr(branches, "get_fuses", lambda: {})
+    monkeypatch.setattr(
+        branches,
+        "_build_matrix_branch",
+        lambda *_args, **_kwargs: MatrixImpedanceSwitchEquipment.example(),
+    )
+    monkeypatch.setattr(
+        branches,
+        "get_equipment_from_catalog",
+        lambda equipment, *_args: equipment,
+    )
+
+    with pytest.raises(ValueError, match="unsupported terminal connections"):
+        branches.get_branches(system, {}, {}, {}, {})
+
+
 JSON_CASEFILES = (Path(__file__).parent.parent / "data" / "opendss_circuit_models").rglob("*.json")

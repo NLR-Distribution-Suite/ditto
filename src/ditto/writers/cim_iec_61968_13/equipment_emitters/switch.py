@@ -11,6 +11,11 @@ def emit_switch(
     bus_location_ids: dict[str, str],
     base_voltage_cache: dict[str, str],
 ) -> None:
+    conductor_phases = getattr(switch, "conductor_phases", None)
+    if conductor_phases is not None and conductor_phases != switch.phases:
+        raise ValueError(
+            f"CIM switch export cannot preserve conductor-to-phase mapping for {switch.name!r}."
+        )
     buses = list(getattr(switch, "buses", []))
     if len(buses) < 2:
         return
