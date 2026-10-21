@@ -5,7 +5,6 @@ from infrasys import Component
 from ditto.writers.opendss.opendss_mapper import OpenDSSMapper
 from ditto.enumerations import OpenDSSFileTypes
 from ditto.constants import LL_LN_CONVERSION_FACTOR
-from ditto.opendss_metadata import OpenDSSTransformerProperties
 
 
 class DistributionTransformerEquipmentMapper(OpenDSSMapper):
@@ -21,17 +20,13 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
 
     def map_pct_no_load_loss(self):
         self.opendss_dict["pctNoLoadLoss"] = self.model.pct_no_load_loss
-        self.map_magnetizing_current()
 
     def map_pct_full_load_loss(self):
         self.opendss_dict["pctLoadLoss"] = self.model.pct_full_load_loss
 
-    def map_magnetizing_current(self):
-        properties = self.system.get_supplemental_attributes_with_component(
-            self.model, OpenDSSTransformerProperties
-        )
-        if properties and properties[0].magnetizing_current_pct is not None:
-            self.opendss_dict["pctIMag"] = properties[0].magnetizing_current_pct
+    def map_magnetizing_current_pct(self):
+        if self.model.magnetizing_current_pct is not None:
+            self.opendss_dict["pctIMag"] = self.model.magnetizing_current_pct
 
     def map_windings(self):
         kvs = []
@@ -92,8 +87,6 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
         self.opendss_dict["pctR"] = pctRs
         self.opendss_dict["kVA"] = kVAs
         self.opendss_dict["Conn"] = conns
-        for x, x_value in zip(["X12", "X23", "X13"], self.model.winding_reactances):
-            self.opendss_dict[x] = x_value
         self.opendss_dict["Phases"] = num_phases
         self.opendss_dict["Tap"] = taps
         self.opendss_dict["MinTap"] = min_tap
@@ -108,10 +101,13 @@ class DistributionTransformerEquipmentMapper(OpenDSSMapper):
         for i in range(len(self.model.coupling_sequences)):
             coupling_sequence = self.model.coupling_sequences[i]
             reactance = self.model.winding_reactances[i]
-            first = coupling_sequence[0] + 1
-            second = coupling_sequence[1] + 1
+            first, second = sorted(index + 1 for index in coupling_sequence)
+            if not 1 <= first < second <= len(self.model.windings):
+                raise ValueError(f"Invalid zero-based winding coupling: {coupling_sequence}")
             reactance_name = "X" + str(first) + str(second)
             self.opendss_dict[reactance_name] = reactance
+        if self.model.is_center_tapped and len(self.model.windings) == 2:
+            self.opendss_dict["X13"] = self.opendss_dict["X12"]
 
     def map_is_center_tapped(self):
         pass  # Used on buses

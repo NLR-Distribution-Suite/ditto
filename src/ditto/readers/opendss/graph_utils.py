@@ -9,6 +9,7 @@ from gdm.distribution.components import (
     DistributionSolar,
     DistributionLoad,
     DistributionBus,
+    MatrixImpedanceSwitch,
 )
 from networkx import Graph, DiGraph
 
@@ -152,14 +153,32 @@ def _fix_bus_phases(
         model: DistributionBranchBase = system.get_component(data["type"], data["name"])
         if not issubclass(model.__class__, DistributionBranchBase):
             raise TypeError(f"Unsupported model type {model.__class__.__name__}")
-        model.phases = _mapped_phases(mapped_split_phases, model.phases)
+        if isinstance(model, MatrixImpedanceSwitch) and model.conductor_phases is not None:
+            # Both phase fields must change together to keep assignment validation consistent.
+            updated = MatrixImpedanceSwitch(
+                **(
+                    dict(model)
+                    | {
+                        "phases": _mapped_phases(mapped_split_phases, model.phases),
+                        "conductor_phases": [
+                            mapped_split_phases.get(phase, phase)
+                            for phase in model.conductor_phases
+                        ],
+                    }
+                )
+            )
+            system.remove_component(model)
+            system.add_component(updated)
+            model = updated
+        else:
+            model.phases = _mapped_phases(mapped_split_phases, model.phases)
         if Phase.N in model.phases:
             model.phases.remove(Phase.N)
 
 
 def _mapped_phases(mapped_split_phases, phases):
     return list(
-        set(
+        dict.fromkeys(
             [
                 mapped_split_phases[phase] if phase in mapped_split_phases else phase
                 for phase in phases
@@ -182,14 +201,7 @@ def _fix_transformer_phases(
     """
     wdg_phases = [xfmr_model.winding_phases[0]]
     for phase_list in secondary_wdg_phases:
-        new_phases = list(
-            set(
-                [
-                    mapped_split_phases[phase] if phase in mapped_split_phases else phase
-                    for phase in phase_list
-                ]
-            )
-        )
+        new_phases = _mapped_phases(mapped_split_phases, phase_list)
         wdg_phases.append(new_phases)
     xfmr_model.winding_phases = wdg_phases
 

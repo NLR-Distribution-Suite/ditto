@@ -25,25 +25,47 @@ DiTTo implements a _many-to-one-to-many_ parsing framework, making it modular an
 
 ## OpenDSS Round-Trip Validation
 
+OpenDSS model numbers and property names stay in DiTTo's translators, not GDM
+components. Load ZIP terms, voltage bounds/cutoff, voltage exponents, and
+transformer magnetizing current are stored in generic equipment fields.
+Three-phase switches use sequence equipment only when it reproduces their
+complete R/X/C matrices; unbalanced matrix switches retain matrix equipment.
+Resolved terminal nodes and per-conductor switch states are preserved.
+Repeated node connections use the generic matrix-switch `conductor_phases`
+mapping rather than simulator-specific metadata. CIM switch export rejects
+these mappings explicitly because it cannot preserve their conductor detail.
+Connections with different phase identities at the two terminals are rejected
+rather than silently rewired.
+
+Transformer winding couplings use zero-based GDM indices. AltDSS schema 0.0.4
+or the corresponding local source checkout is required to serialize total load
+loss before explicit winding resistances, preserving unequal winding losses.
+
+GDM files produced by this reader do not need DiTTo to deserialize. Previously
+generated files containing simulator-specific supplemental properties must be
+regenerated; no backward-compatibility layer is provided for those properties.
+
 DiTTo uses round-trip comparisons to verify that a model converted through GDM
 and written back to OpenDSS preserves electrical behavior. The latest corrected
 comparison uses the same deterministic solve policy on both sides: regulator
 and capacitor controls disabled, transformer taps fixed at 1.0 pu, and
 capacitor banks on.
 
-| Circuit | Source P (pre → post) | Source Q (pre → post) | Total loss kW (pre → post) | Line loss kW (pre → post) | Transformer loss kW (pre → post) | Dashboard Vmin (pre → post) |
+| Circuit | Source P (pre → post) | Source Q (pre → post) | Total loss kW (pre → post) | Line loss kW (pre → post) | Transformer loss kW (pre → post) | Minimum node voltage pu (pre → post) |
 |---|---:|---:|---:|---:|---:|---:|
 | 123Bus | 3,482.7 → 3,480.9 (-0.050%) | 1,358.1 → 1,357.0 (-0.081%) | 96.73 → 96.62 | 96.73 → 96.61 | 0.0003 → 0.0003 | 0.926538 → 0.926634 |
-| 13Bus | 3,400.7 → 3,398.9 (-0.054%) | 1,707.7 → 1,706.4 (-0.077%) | 112.57 → 112.41 | 106.47 → 106.31 | 6.10 → 6.10 | 0.905202 → 0.905286 |
-| CKT7 | 76,311.2 → 76,311.2 (~0.000%) | 24,148.6 → 24,148.0 (-0.002%) | 239.07 → 238.22 | 172.17 → 171.30 | 66.91 → 66.92 | 0.813033 → 0.813158 |
-| CKT24 | 50,727.1 → 50,758.4 (+0.062%) | 11,498.1 → 11,410.4 (-0.763%) | 1,002.51 → 1,003.83 | 473.19 → 473.97 | 529.32 → 529.87 | 0.863240 → 0.863664 |
-| P4U | 2,254.5 → 2,254.6 (+0.004%) | 689.2 → 689.6 (+0.063%) | 172.83 → 172.93 | 21.93 → 21.94 | 150.90 → 150.99 | 0.944773 → 0.944734 |
-| SFO | 5,056.4 → 5,056.3 (-0.002%) | 828.3 → 833.2 (+0.589%) | 163.99 → 163.90 | 71.82 → 70.12 | 92.16 → 93.78 | 0.959260 → 0.959116 |
-| 8500-Node | 11,232.4 → 11,248.2 (+0.141%) | 1,869.1 → 1,839.3 (-1.598%) | 1,211.72 → 1,219.91 | 1,043.64 → 1,040.20 | 168.08 → 179.71 | 0.785291 → 0.785770 |
+| 13Bus | 3,400.7 → 3,398.9 (-0.054%) | 1,707.7 → 1,706.4 (-0.077%) | 112.57 → 112.41 | 106.47 → 106.31 | 6.1033 → 6.0954 | 0.905202 → 0.905286 |
+| CKT7 | 76,311.2 → 76,311.1 (~0.000%) | 24,148.6 → 24,148.5 (~0.000%) | 239.07 → 239.08 | 172.17 → 172.17 | 66.9075 → 66.9051 | 0.813033 → 0.812999 |
+| CKT24 | 50,727.1 → 50,758.4 (+0.062%) | 11,498.1 → 11,410.4 (-0.763%) | 1,002.51 → 1,003.84 | 473.19 → 473.98 | 529.3203 → 529.8659 | 0.863240 → 0.863664 |
+| P4U | 2,254.5 → 2,254.5 (~0.000%) | 689.2 → 689.2 (+0.001%) | 172.83 → 172.83 | 21.93 → 21.93 | 150.8977 → 150.8911 | 0.944773 → 0.944742 |
+| SFO | 5,056.4 → 5,056.4 (~0.000%) | 828.3 → 828.3 (+0.003%) | 163.99 → 163.99 | 71.82 → 71.83 | 92.1650 → 92.1613 | 0.959260 → 0.959229 |
+| 8500-Node | 11,232.4 → 11,232.3 (~0.000%) | 1,869.1 → 1,869.1 (-0.001%) | 1,211.72 → 1,211.78 | 1,043.64 → 1,043.70 | 168.0753 → 168.0789 | 0.051770 → 0.051768 |
 
-The voltage minimums use phase terminals that are actually connected in the
-OpenDSS topology. This avoids treating malformed, unserved switch conductors
-as energized buses. The complete machine-readable comparison is generated in
+This comparison includes all raw OpenDSS nodes, including the implicit switch
+nodes in 8500-Node. All seven source and converted models converge, all 26,844
+nodes match, and every voltage error is below 0.001 pu. Source active/reactive
+power and total active losses meet a 1% relative plus 0.01 absolute tolerance.
+The complete machine-readable comparison is generated in
 `corrected_roundtrip_comparison.csv` by the round-trip validation workflow.
 
 ## How It Works

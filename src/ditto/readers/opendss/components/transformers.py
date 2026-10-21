@@ -24,9 +24,8 @@ import opendssdirect as odd
 from loguru import logger
 
 from ditto.readers.opendss.common import PHASE_MAPPER, get_equipment_from_catalog
-from ditto.opendss_metadata import OpenDSSTransformerProperties
 
-SEQUENCE_PAIRS = [SequencePair(1, 2), SequencePair(1, 3), SequencePair(2, 3)]
+SEQUENCE_PAIRS = [SequencePair(0, 1), SequencePair(0, 2), SequencePair(1, 2)]
 
 
 class XfmrModelTypes(str, Enum):
@@ -38,6 +37,7 @@ def _build_xfmr_equipment(
     model_type: str,
     distribution_transformer_equipment_catalog: dict[int, DistributionTransformerEquipment],
     winding_equipment_catalog: dict[int, WindingEquipment],
+    magnetizing_current_pct: float | None = None,
 ) -> tuple[DistributionTransformerEquipment, list[DistributionBus], list[Phase]]:
     """Helper function to build a DistributionTransformerEquipment instance
 
@@ -131,6 +131,7 @@ def _build_xfmr_equipment(
         coupling_sequences=coupling_sequences,
         winding_reactances=reactances,
         is_center_tapped=_is_center_tapped(wdg_nom_voltages),
+        magnetizing_current_pct=magnetizing_current_pct,
     )
     dist_transformer = get_equipment_from_catalog(
         dist_transformer, distribution_transformer_equipment_catalog
@@ -168,7 +169,6 @@ def get_transformers(
     system: System,
     distribution_transformer_equipment_catalog: dict[int, DistributionTransformerEquipment],
     winding_equipment_catalog: dict[int, WindingEquipment],
-    transformer_properties: dict[str, OpenDSSTransformerProperties] | None = None,
 ) -> list[DistributionTransformer]:
     """Method returns a list of DistributionTransformer objects
 
@@ -196,10 +196,19 @@ def get_transformers(
             bus_phases = [PHASE_MAPPER[ph] for ph in bus_phases]
             phases.append([Phase(phase) for phase in bus_phases])
             buses.append(system.get_component(DistributionBus, bus_name_clean))
+        odd.Text.Command(f"? Transformer.{odd.Transformers.Name()}.%imag")
+        result = odd.Text.Result()
+        try:
+            magnetizing_current_pct = float(result)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Invalid magnetizing current for transformer {odd.Transformers.Name()}: {result!r}"
+            ) from exc
         xfmr_equipment = _build_xfmr_equipment(
             XfmrModelTypes.TRANSFORMERS.value,
             distribution_transformer_equipment_catalog,
             winding_equipment_catalog,
+            magnetizing_current_pct,
         )
         transformer = DistributionTransformer.model_construct(
             name=odd.Transformers.Name().lower(),
@@ -207,16 +216,6 @@ def get_transformers(
             winding_phases=phases,
             equipment=xfmr_equipment,
         )
-        if transformer_properties is not None:
-            odd.Text.Command(f"? Transformer.{odd.Transformers.Name()}.%imag")
-            result = odd.Text.Result()
-            try:
-                magnetizing_current_pct = float(result)
-            except (TypeError, ValueError):
-                magnetizing_current_pct = None
-            transformer_properties[transformer.name] = OpenDSSTransformerProperties(
-                magnetizing_current_pct=magnetizing_current_pct,
-            )
         transformers.append(transformer)
         flag = odd.Transformers.Next()
 

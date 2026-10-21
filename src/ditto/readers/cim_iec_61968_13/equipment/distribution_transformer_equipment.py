@@ -46,7 +46,7 @@ class DistributionTransformerEquipmentMapper(CimMapper):
         return wingings
 
     def map_coupling_sequences(self, row):
-        return [SequencePair(1, 2)]
+        return [SequencePair(0, 1)]
 
     def map_winding_reactances(self, row):
         if "x0" in row and "x1" in row:

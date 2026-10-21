@@ -3,6 +3,12 @@ from ditto.writers.opendss.components.distribution_branch import DistributionBra
 from ditto.writers.opendss.components.sequence_impedance_branch import (
     SequenceImpedanceBranchMapper,
 )
+from ditto.writers.opendss.components.sequence_impedance_switch import (
+    SequenceImpedanceSwitchMapper,
+)
+from ditto.writers.opendss.equipment.sequence_impedance_switch_equipment import (
+    SequenceImpedanceSwitchEquipmentMapper,
+)
 from ditto.writers.opendss.components.matrix_impedance_branch import MatrixImpedanceBranchMapper
 from ditto.writers.opendss.components.geometry_branch import GeometryBranchMapper
 from ditto.writers.opendss.equipment.sequence_impedance_branch_equipment import (

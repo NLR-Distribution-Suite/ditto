@@ -27,7 +27,6 @@ from ditto.readers.opendss.components.branches import (
     get_branches,
     get_reactors,
 )
-from ditto.opendss_metadata import OpenDSSSwitchProperties, OpenDSSTransformerProperties
 
 from ditto.readers.reader import AbstractReader
 
@@ -50,9 +49,6 @@ class Reader(AbstractReader):
 
         self.system = DistributionSystem(auto_add_composed_components=True)
         self.validation_errors: list[list[str]] = []
-        self._load_properties = {}
-        self._transformer_properties = {}
-        self._switch_properties: dict[str, OpenDSSSwitchProperties] = {}
         self.Opendss_master_file = Path(Opendss_master_file)
         self.crs = crs
         self._read(use_split_phase_representation)
@@ -106,12 +102,7 @@ class Reader(AbstractReader):
         self._add_components(get_buses(self.crs))
         self._add_components(get_voltage_sources(self.system))
         self._add_components(get_capacitors(self.system))
-        loads = get_loads(self.system, self._load_properties)
-        self._add_components(loads)
-        for load in loads:
-            properties = self._load_properties.get(load.name)
-            if properties is not None:
-                self.system.add_supplemental_attribute(load, properties)
+        self._add_components(get_loads(self.system))
         self._add_components(get_pvsystems(self.system))
         (
             distribution_transformer_equipment_catalog,
@@ -122,19 +113,8 @@ class Reader(AbstractReader):
             self.system,
             distribution_transformer_equipment_catalog,
             winding_equipment_catalog,
-            self._transformer_properties,
         )
         self._add_components(transformers)
-        for transformer in transformers:
-            properties = self._transformer_properties.get(transformer.name)
-            if properties is not None:
-                # The equipment mapper owns the XfmrCode declaration, so keep
-                # the source property on the composed equipment object.
-                existing = self.system.get_supplemental_attributes_with_component(
-                    transformer.equipment, OpenDSSTransformerProperties
-                )
-                if not existing:
-                    self.system.add_supplemental_attribute(transformer.equipment, properties)
         self._add_components(get_conductors_equipment())
         self._add_components(get_cables_equipment())
         matrix_branch_equipments_catalog, thermal_limit_catalog = get_matrix_branch_equipments()
@@ -151,13 +131,8 @@ class Reader(AbstractReader):
             geometry_branch_equipment_catalog,
             matrix_branch_equipments_catalog,
             thermal_limit_catalog,
-            self._switch_properties,
         )
         self._add_components(branches)
-        for branch in branches:
-            properties = self._switch_properties.get(branch.name)
-            if properties is not None:
-                self.system.add_supplemental_attribute(branch, properties)
         self._add_components(get_reactors(self.system))
 
         logger.debug("parsing complete...")
