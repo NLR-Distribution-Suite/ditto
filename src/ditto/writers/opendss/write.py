@@ -47,6 +47,11 @@ class Writer(AbstractWriter):
             return self._normalize_dss_string(
                 altdss_models.Reactor.dict_dumps_dss(model_map.opendss_dict)
             )
+        if model_map.altdss_name == "Generator_kWkvar":
+            generator = altdss_models.Generator_kWkvar.model_validate(model_map.opendss_dict)
+            return self._normalize_dss_string(
+                altdss_models.Generator.dict_dumps_dss(generator.model_dump(exclude_unset=True))
+            )
         # Example model_map is instance of DistributionBusMapper
         altdss_class = getattr(altdss_models, model_map.altdss_name)
         # Example altdss_class is Bus
@@ -268,7 +273,9 @@ class Writer(AbstractWriter):
                 equipment_map = None
                 controller_outputs = []
 
-                if hasattr(model, "equipment"):
+                if hasattr(model, "equipment") and not getattr(
+                    model_map, "inline_equipment", False
+                ):
                     equipment_mapper_name = model.equipment.__class__.__name__ + "Mapper"
                     if not hasattr(opendss_mapper, equipment_mapper_name):
                         logger.warning(

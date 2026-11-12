@@ -17,6 +17,7 @@ from ditto.readers.opendss.graph_utils import update_split_phase_nodes
 from ditto.readers.opendss.components.pv_systems import get_pvsystems
 from ditto.readers.opendss.components.buses import get_buses
 from ditto.readers.opendss.components.loads import get_loads
+from ditto.readers.opendss.components.generators import get_generators
 from ditto.readers.opendss.components.transformers import (
     get_transformer_equipments,
     get_transformers,
@@ -99,10 +100,17 @@ class Reader(AbstractReader):
 
         odd.Solution.Solve()
 
+        if odd.Reclosers.Count():
+            raise NotImplementedError(
+                "OpenDSS recloser controls cannot yet be represented faithfully; "
+                "conversion would discard protection settings"
+            )
+
         self._add_components(get_buses(self.crs))
         self._add_components(get_voltage_sources(self.system))
         self._add_components(get_capacitors(self.system))
         self._add_components(get_loads(self.system))
+        self._add_components(get_generators(self.system))
         self._add_components(get_pvsystems(self.system))
         (
             distribution_transformer_equipment_catalog,

@@ -8,6 +8,8 @@ from gdm.systems.distribution.components.distribution_load import DistributionLo
 from gdm.systems.distribution.components.distribution_transformer import (
     DistributionTransformer,
 )
+from gdm.systems.distribution import DistributionSystem
+from gdm.systems.distribution.components import DistributionGenerator
 
 from ditto.writers.opendss.write import Writer
 from ditto.readers.opendss.reader import Reader
@@ -51,6 +53,46 @@ def _redirect_without_control_changes(master_file: Path) -> None:
     odd.Basic.ClearAll()
     odd.Text.Command(f'redirect "{master_file}"')
     odd.Solution.Solve()
+
+
+def test_roundtrip_preserves_generator_models_and_setpoints(tmp_path):
+    source = tmp_path / "source.dss"
+    source.write_text(
+        "clear\nnew circuit.test bus1=source basekv=12.47 phases=3\n"
+        "new generator.pq bus1=source.2 phases=1 kv=7.2 kw=50 kvar=12 kva=75 "
+        "model=1 conn=wye xdp=0.25 xdpp=0.15 h=2\n"
+        "new generator.pv bus1=source.1.2.3 phases=3 kv=12.47 kw=100 kvar=5 "
+        "kva=200 model=3 vpu=1.02 minkvar=-80 maxkvar=80\n"
+        "new generator.off bus1=source phases=3 kv=12.47 kw=0 kvar=0 "
+        "kva=100 model=7 enabled=no\n"
+        "set voltagebases=[12.47]\ncalcvoltagebases\nsolve\n"
+    )
+    system = Reader(source).get_system()
+    json_path = tmp_path / "generator-system.json"
+    system.to_json(json_path)
+    system = DistributionSystem.from_json(json_path)
+    assert len(list(system.get_components(DistributionGenerator))) == 3
+    output = tmp_path / "output"
+    output.mkdir()
+    Writer(system).write(output, separate_substations=False, separate_feeders=False)
+    _redirect_without_control_changes(output / "Master.dss")
+
+    assert set(odd.Generators.AllNames()) == {"pq", "pv", "off"}
+    odd.Generators.Name("pq")
+    assert odd.Generators.Model() == 1
+    assert odd.Generators.kW() == pytest.approx(50)
+    assert odd.Generators.kvar() == pytest.approx(12)
+    assert odd.CktElement.BusNames()[0] == "source.2"
+    odd.Text.Command("? generator.pq.xdp")
+    assert float(odd.Text.Result()) == pytest.approx(0.25)
+    odd.Generators.Name("pv")
+    assert odd.Generators.Model() == 3
+    assert odd.Generators.kW() == pytest.approx(100)
+    odd.Text.Command("? generator.pv.vpu")
+    assert float(odd.Text.Result()) == pytest.approx(1.02)
+    odd.Generators.Name("off")
+    assert odd.Generators.Model() == 7
+    assert not odd.CktElement.Enabled()
 
 
 def test_roundtrip_preserves_load_voltage_and_cvr_properties(tmp_path):

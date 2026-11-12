@@ -18,6 +18,17 @@ the OpenDSS engine and extract component data.
 Each component type is handled by a dedicated module that queries the OpenDSS
 engine and maps the results to GDM objects.
 
+Generator conversion requires a Grid Data Models version providing
+`DistributionGenerator` and `GeneratorEquipment`. Generator load shapes are
+not yet preserved, and user-defined OpenDSS generator models are rejected.
+Recloser controls are not yet supported; models containing them are rejected
+instead of silently discarding their protection settings.
+
+For `WireData` and `CNData`, the reader uses the specified conductor and
+neutral-strand GMR and diameter with their respective units. If either GMR or
+diameter is missing, it estimates the missing value from the other. A cable's
+rated voltage is a reader default, not an OpenDSS `CNData` rating.
+
 ```{eval-rst}
 .. automodule:: ditto.readers.opendss.components.branches
    :members:
@@ -35,6 +46,9 @@ engine and maps the results to GDM objects.
    :members:
 
 .. automodule:: ditto.readers.opendss.components.loads
+   :members:
+
+.. automodule:: ditto.readers.opendss.components.generators
    :members:
 
 .. automodule:: ditto.readers.opendss.components.pv_systems

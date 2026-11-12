@@ -24,14 +24,20 @@ def get_conductors_equipment() -> list[BareConductorEquipment]:
         gmr_units = query_model_data(model_type, model_name, "gmrunits", str)
         radius_units = query_model_data(model_type, model_name, "radunits", str)
         length_units = query_model_data(model_type, model_name, "runits", str)
-        gmr = query_model_data(model_type, model_name, "gmr", float)
+        gmr = query_model_data(model_type, model_name, "gmrac", float)
         diam = query_model_data(model_type, model_name, "diam", float)
+        if not gmr and not diam:
+            raise ValueError(f"WireData {model_name!r} has neither GMR nor diameter")
+        if not diam:
+            diam = 2 * Distance(gmr, gmr_units).to(radius_units).magnitude / 0.7788
+        if not gmr:
+            gmr = Distance(diam / 2, radius_units).to(gmr_units).magnitude * 0.7788
         conductor = BareConductorEquipment.model_construct(
             emergency_ampacity=Current(
                 query_model_data(model_type, model_name, "emergamps", float), "ampere"
             ),
-            conductor_diameter=Distance(diam if diam else gmr / 0.7788, f"{radius_units}"),
-            conductor_gmr=Distance(gmr if gmr else diam * 0.7788, f"{gmr_units}"),
+            conductor_diameter=Distance(diam, radius_units),
+            conductor_gmr=Distance(gmr, gmr_units),
             ac_resistance=ResistancePULength(
                 query_model_data(model_type, model_name, "rac", float), f"ohms/{length_units}"
             ),
