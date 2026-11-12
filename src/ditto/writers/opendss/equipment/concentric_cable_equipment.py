@@ -16,7 +16,9 @@ class ConcentricCableEquipmentMapper(OpenDSSMapper):
         self.opendss_dict["Name"] = self.get_opendss_safe_name(self.model.name)
 
     def map_strand_diameter(self):
-        self.opendss_dict["DiaStrand"] = self.model.strand_diameter.magnitude
+        self.opendss_dict["DiaStrand"] = self.model.strand_diameter.to(
+            self.model.conductor_diameter.units
+        ).magnitude
 
     def map_conductor_diameter(self):
         self.opendss_dict["Radius"] = self.model.conductor_diameter.magnitude / 2
@@ -26,13 +28,19 @@ class ConcentricCableEquipmentMapper(OpenDSSMapper):
         self.opendss_dict["RadUnits"] = self.length_units_map[rad_units]
 
     def map_cable_diameter(self):
-        self.opendss_dict["DiaCable"] = self.model.cable_diameter.magnitude
+        self.opendss_dict["DiaCable"] = self.model.cable_diameter.to(
+            self.model.conductor_diameter.units
+        ).magnitude
 
     def map_insulation_thickness(self):
-        self.opendss_dict["InsLayer"] = self.model.insulation_thickness.magnitude
+        self.opendss_dict["InsLayer"] = self.model.insulation_thickness.to(
+            self.model.conductor_diameter.units
+        ).magnitude
 
     def map_insulation_diameter(self):
-        self.opendss_dict["DiaIns"] = self.model.insulation_diameter.magnitude
+        self.opendss_dict["DiaIns"] = self.model.insulation_diameter.to(
+            self.model.conductor_diameter.units
+        ).magnitude
 
     def map_ampacity(self):
         ampacity_amps = self.model.ampacity.to("ampere")
@@ -47,7 +55,9 @@ class ConcentricCableEquipmentMapper(OpenDSSMapper):
         self.opendss_dict["GMRUnits"] = self.length_units_map[gmr_units]
 
     def map_strand_gmr(self):
-        self.opendss_dict["GMRStrand"] = self.model.strand_gmr.magnitude
+        self.opendss_dict["GMRStrand"] = self.model.strand_gmr.to(
+            self.model.conductor_gmr.units
+        ).magnitude
 
     def map_phase_ac_resistance(self):
         resistance = self.model.phase_ac_resistance.to("ohms/km")

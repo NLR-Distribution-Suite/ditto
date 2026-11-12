@@ -17,6 +17,7 @@ class OpenDSSFileTypes(str, Enum):
     CAPACITORS_FILE = "Capacitors.dss"
     LINES_FILE = "Lines.dss"
     LOADS_FILE = "Loads.dss"
+    GENERATORS_FILE = "Generators.dss"
     SOLAR_FILE = "Solar.dss"
     SWITCH_FILE = "Switches.dss"
     FUSE_FILE = "Fuses.dss"

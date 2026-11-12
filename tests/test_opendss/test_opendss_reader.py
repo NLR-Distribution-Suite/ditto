@@ -5,11 +5,14 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+import opendssdirect as odd
 
 from gdm.distribution import DistributionSystem
 from gdm.distribution.components import DistributionBus
 from gdm.distribution.enums import Phase
 from ditto.readers.opendss.components import branches
+from ditto.readers.opendss.components.cables import get_cables_equipment
+from ditto.readers.opendss.components.conductors import get_conductors_equipment
 from ditto.readers.opendss.reader import Reader
 
 
@@ -78,6 +81,51 @@ def test_single_phase_reactor_is_read(monkeypatch):
 
     assert len(reactors) == 1
     assert reactors[0].phases == [Phase.A]
+
+
+def test_cable_dimensions():
+    odd.Basic.ClearAll()
+    odd.Text.Command("new circuit.test")
+    odd.Text.Command(
+        "new cndata.cable1 runits=km radunits=cm gmrunits=cm "
+        "inslayer=0.4 diains=2.1 diacable=2.7 rac=0.6 gmrac=0.34 "
+        "diam=0.9 rstrand=2.5 gmrstrand=0.025 diastrand=0.064 k=6 normamps=100"
+    )
+
+    cable = get_cables_equipment()[0]
+
+    assert cable.name == "cable1"
+    assert cable.num_neutral_strands == 6
+    assert cable.strand_gmr.to("cm").magnitude == pytest.approx(0.025)
+    assert cable.conductor_gmr.to("cm").magnitude == pytest.approx(0.34)
+    assert cable.strand_diameter.to("cm").magnitude == pytest.approx(0.064)
+    assert cable.insulation_thickness.to("cm").magnitude == pytest.approx(0.4)
+    type(cable).model_validate(cable.model_dump())
+
+
+def test_wire_gmr_is_preserved_and_equivalent_wires_are_deduplicated():
+    odd.Basic.ClearAll()
+    odd.Text.Command("new circuit.test")
+    for name in ("wire1", "wire2"):
+        odd.Text.Command(
+            f"new wiredata.{name} rac=0.1 runits=km gmrac=0.3 gmrunits=cm "
+            "diam=1 radunits=cm normamps=100"
+        )
+    wires = get_conductors_equipment()
+    assert wires[0].conductor_gmr.to("cm").magnitude == pytest.approx(0.3)
+    assert wires[0].uuid == wires[1].uuid
+
+
+def test_recloser_controls_are_not_silently_discarded(tmp_path):
+    source = tmp_path / "master.dss"
+    source.write_text(
+        "clear\nnew circuit.test bus1=source basekv=12.47\n"
+        "new line.feeder bus1=source bus2=load length=1\n"
+        "new recloser.test monitoredobj=line.feeder\n"
+        "set voltagebases=[12.47]\ncalcvoltagebases\nsolve\n"
+    )
+    with pytest.raises(NotImplementedError, match="recloser controls"):
+        Reader(source)
 
 
 def test_switch_rejects_different_terminal_phases(monkeypatch):
